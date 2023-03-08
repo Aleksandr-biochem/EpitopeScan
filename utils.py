@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import numpy as np
 import blosum as bl
 import pandas as pd
@@ -243,7 +244,7 @@ def ExpandMutationData(dfs):
 
     return dfs
 
-def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None, verbose=True):
+def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None, verbose=True, quality_filter=None):
     """
     Scan genome MSA to report mutations within peptides
 
@@ -257,6 +258,7 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None, verbose=True):
     """
 
     total_samples = 0 # found samples count
+    discarded_by_quality = 0 # count samples discarded by quality if neccessary
 
     # initiate blank substitution matrices for each epitope
     for epitope in epitopes_to_scan:
@@ -290,6 +292,9 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None, verbose=True):
     df = [] # list to append extracted mutatiuon data
     with open(msa_file, 'r') as f:
 
+        # record start time for reports
+        time_checkpoint = time.time()
+
         for line in f:
 
             if line.startswith('>'):
@@ -309,6 +314,13 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None, verbose=True):
                 if not skip_sample:
                     # get the aligned sequence
                     genome_aln = line.strip()
+
+                    # check proportion of N bases if necessary
+                    if not quality_filter is None:
+                        proportion_of_N = genome_aln.count('N') / (len(genome_aln) - genome_aln.count('-'))
+                        if proportion_of_N > quality_filter:
+                            discarded_by_quality += 1
+                            pass
                     
                     # compare sequence of each epitope to the sample
                     for epitope in epitopes_to_scan:
@@ -329,11 +341,18 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None, verbose=True):
 
                     # add new row to the data
                     df.append(new_row)
+
+            if time.time() - time_checkpoint > 1:
+                time_checkpoint = time.time()
+                print(f"Scanned samples: {total_samples}", end="\r")
     
     if verbose:
+        print()
         print(f"Found {total_samples} samples")
         print(f"Rejected {total_samples - len(df)} samples by tag")
-        print(f"Returning data for {len(df)} samples\n")
+        if not quality_filter is None:
+            print(f"Rejected {discarded_by_quality} genomes having >0.05 N bases")
+        print(f"Returning mutations data for {len(df)} samples\n")
 
     # separate dataframes for each epitope
     print("Finalising output data...\n")

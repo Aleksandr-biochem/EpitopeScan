@@ -22,6 +22,7 @@ if __name__ == "__main__":
 	parser_scan.add_argument("-m", "--msa",     help="Path to MSA fasta file for analysis", type=str, required=True)
 	parser_scan.add_argument("-o", "--out",     help="Output directory", type=str)
 	parser_scan.add_argument("-t", "--tag",     help="Sample tag to filter", type=str)
+	parser_scan.add_argument("-q", "--quality_filter", help="Threshold of max N bases proportion in genome. Recommended 0.05", type=float)
 	parser_scan.add_argument("-b", "--blosum",  help="Define BLOSUM version for mutation scoring. Default 90", type=int, default=90)
 	parser_scan.add_argument("-s", "--sort",    help="Sort mutations in summary by count(0) or score(1). Default 0", type=int, choices=[0, 1], default=0)
 	parser_scan.add_argument("-a", "--stat",    help="Stat individual mutations(0) or mutation combinations(1). Default 0", type=int, choices=[0, 1], default=0)
@@ -80,9 +81,10 @@ if __name__ == "__main__":
 		# scan the MSA data
 		print("Scanning MSA data for epitope mutations...")
 		start_time = time.time()
-		output_data = ScanMSA(epitopes_to_scan,
-							  args.msa,
-							  sample_tag)
+		output_data = ScanMSA(epitopes_to_scan = epitopes_to_scan,
+							  msa_file = args.msa,
+							  sample_tag = sample_tag,
+							  quality_filter = args.quality_filter)
 		print(f"Finished scan. Run time: {round(time.time() - start_time, 2)} s.\n")
 
 		# print key summary
