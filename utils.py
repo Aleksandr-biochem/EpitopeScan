@@ -198,7 +198,7 @@ def CompareSequences(peptide, sample_seq, codon_table):
             AA_substitutions.append(f"{codon_table[ref_codon]}{coordinate}{codon_table[codon]}")
 
             # count AA sunstitution
-            ind_AA = 'GALMFWKQESPVICYHRNDT_'.find(codon_table[codon])
+            ind_AA = 'GALMFWKQESPVICYHRNDT*'.find(codon_table[codon])
             peptide.AA_mutations_matrix[(i // 3), ind_AA] += 1
 
     NA_substitutions = ','.join(NA_substitutions) if len(NA_substitutions) > 0 else None
@@ -279,8 +279,8 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None, verbose=True):
         'GGA':'G', 'GGC':'G', 'GGG':'G', 'GGT':'G',
         'TCA':'S', 'TCC':'S', 'TCG':'S', 'TCT':'S',
         'TTC':'F', 'TTT':'F', 'TTA':'L', 'TTG':'L',
-        'TAC':'Y', 'TAT':'Y', 'TAA':'_', 'TAG':'_',
-        'TGC':'C', 'TGT':'C', 'TGA':'_', 'TGG':'W'
+        'TAC':'Y', 'TAT':'Y', 'TAA':'*', 'TAG':'*',
+        'TGC':'C', 'TGT':'C', 'TGA':'*', 'TGG':'W'
     }
 
     # define if we have to filter samples
@@ -464,7 +464,7 @@ def StatEpitopeData(input_dir,
 
     input_dir - str, path to EpitopeScan results dir
     """
-    
+
     # list peptide names to analyse 
     peptide_names = next(os.walk(input_dir))[1]
 
