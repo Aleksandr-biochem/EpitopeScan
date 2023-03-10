@@ -164,7 +164,7 @@ def MapPeptides(peptides, proteome, ref_genome, verbose=True):
 
     return mapped_peptides
 
-def CompareSequences(peptide, sample_seq, codon_table):
+def CompareSequences(peptide, sample_seq, codon_table, ambiguity_intolerance=False):
     """
     Compare DNA sequences to find NA and AA substitutions
     
@@ -176,24 +176,30 @@ def CompareSequences(peptide, sample_seq, codon_table):
     list( str NA substitutions, str AA substitutions)
     """
     NA_substitutions, AA_substitutions = [], []
-    
+    ambiguous_codons = 0 # report ambiguous codons
+
     # scan DNA codons
     for i in range(0, len(sample_seq), 3):
 
         ref_codon, codon = peptide.coding_sequence[i:i+3], sample_seq[i:i+3]
-        
+
         # compare bases within the codon
         for j, (ref_base, base) in enumerate(zip(ref_codon, codon)):
-            if ref_base != base:
+            # report only umambiguous bases
+            if (ref_base != base) and (base in 'ATCG'):
                 coordinate = peptide.genome_start + i + j
                 NA_substitutions.append(f"{ref_base}{coordinate}{base}")
 
                 # count NA substitution
                 ind_NA = 'ATCG'.find(base)
                 peptide.NA_mutations_matrix[i + j, ind_NA] += 1
-        
-        # report residue change if any
-        if codon_table[ref_codon] != codon_table[codon]:
+
+        # report if ambiguous codon is encountered
+        if codon not in codon_table.keys():
+            ambiguous_codons += 1
+
+        # for unambiguous codons report residue change if any
+        elif codon_table[ref_codon] != codon_table[codon]:
 
             coordinate = peptide.protein_start + (i // 3)
             AA_substitutions.append(f"{codon_table[ref_codon]}{coordinate}{codon_table[codon]}")
@@ -202,8 +208,14 @@ def CompareSequences(peptide, sample_seq, codon_table):
             ind_AA = 'GALMFWKQESPVICYHRNDT*'.find(codon_table[codon])
             peptide.AA_mutations_matrix[(i // 3), ind_AA] += 1
 
-    NA_substitutions = ','.join(NA_substitutions) if len(NA_substitutions) > 0 else None
-    AA_substitutions = ','.join(AA_substitutions) if len(AA_substitutions) > 0 else None    
+    if ambiguity_intolerance and ambiguous_codons > 0:
+        NA_substitutions, AA_substitutions = '-', '-'
+    # consider as insufficient coverage and do not trust
+    elif ambiguous_codons > (len(peptide.sequence) // 3):
+        NA_substitutions, AA_substitutions = '-', '-' 
+    else:
+        NA_substitutions = ','.join(NA_substitutions) if len(NA_substitutions) > 0 else None
+        AA_substitutions = ','.join(AA_substitutions) if len(AA_substitutions) > 0 else None    
     
     return [NA_substitutions, AA_substitutions]
 
@@ -244,7 +256,9 @@ def ExpandMutationData(dfs):
 
     return dfs
 
-def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None, verbose=True, quality_filter=None):
+def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None,
+            verbose=True, quality_filter=None,
+            ambiguity_intolerance=False):
     """
     Scan genome MSA to report mutations within peptides
 
@@ -329,12 +343,13 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None, verbose=True, quality_f
                         sample_sequence = genome_aln[epitope.genome_start - 1:epitope.genome_end]
                         
                         # check that DNA sequence is complete
-                        if set(sample_sequence) == set('ATCG'):
+                        if not '-' in sample_sequence:
 
                             # run comparison to reference and save mutation data
                             new_row.append(CompareSequences(epitope,
                                                             sample_sequence,
-                                                            codon_table))
+                                                            codon_table,
+                                                            ambiguity_intolerance))
                         else:
                             # else report missing coverage
                             new_row.append(['-', '-'])
