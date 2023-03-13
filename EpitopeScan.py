@@ -106,13 +106,13 @@ if __name__ == "__main__":
 			# save AA substitution matrix
 			matrix = pd.DataFrame(epitope.AA_mutations_matrix,
 					              index=list(epitope.sequence),
-					              columns=list('GALMFWKQESPVICYHRNDT*'))
+					              columns=list('GALMFWKQESPVICYHRNDT*Δ'))
 			matrix.to_csv(f"{output_dir}/{epitope.name}/{epitope.name}_AA_mutation_matrix.csv")
 
 			# save NA substitution matrix
 			matrix = pd.DataFrame(epitope.NA_mutations_matrix,
 					              index=list(epitope.coding_sequence),
-					              columns=list('ATCG'))
+					              columns=list('ATCGΔ'))
 			matrix.to_csv(f"{output_dir}/{epitope.name}/{epitope.name}_NA_mutation_matrix.csv")
 			
 			# save output dataframes
