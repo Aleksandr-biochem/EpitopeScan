@@ -606,6 +606,7 @@ def CombinationsStat(df, blosum_version=90):
     AA_mutations_stat = dict()
     
     # get mutation combinations
+    all_mutations = set(df.columns[3:])
     mutations, combinations = df.iloc[:, 3:], []
     if mutations.shape[1] > 0:
         combinations = mutations.drop_duplicates()
@@ -619,6 +620,8 @@ def CombinationsStat(df, blosum_version=90):
 
             for mut in combination:
                 mutations_filt = mutations_filt[mutations_filt[mut] == 1]
+            for mut in (all_mutations - set(combination)):
+                mutations_filt = mutations_filt[mutations_filt[mut] == 0]
 
             count = mutations_filt.shape[0]
 
