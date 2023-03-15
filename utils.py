@@ -440,6 +440,7 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None,
     """
 
     total_samples = 0 # found samples count
+    rejected_by_tag = 0 # samples rejected by tag
     discarded_by_quality = 0 # count samples discarded by quality if neccessary
 
     # initiate blank substitution matrices for each epitope
@@ -540,6 +541,9 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None,
 
                     # add new row to the data
                     df.append(new_row)
+                
+                else:
+                    rejected_by_tag += 1
 
             if time.time() - time_checkpoint > 1:
                 time_checkpoint = time.time()
@@ -548,7 +552,8 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None,
     if verbose:
         print()
         print(f"Found {total_samples} samples")
-        print(f"Rejected {total_samples - len(df)} samples by tag")
+        if filter_samples:
+            print(f"Rejected {rejected_by_tag} samples by tag")
         if not quality_filter is None:
             print(f"Rejected {discarded_by_quality} genomes having >0.05 N bases")
         print(f"Returning mutations data for {len(df)} samples\n")
