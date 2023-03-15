@@ -184,15 +184,13 @@ def CompareNAsequences(peptide, sample_seq):
         if base == '-':
             NA_substitutions.append(f"Δ{peptide.genome_start + i}{ref_base}")
 
-            # count NA deletion
-            peptide.NA_mutations_matrix[i, -1] += 1
-
         # report substitution for unambiguous bases
         elif (ref_base != base) and (base in 'ATCG'):
             NA_substitutions.append(f"{ref_base}{peptide.genome_start + i}{base}")
 
-            # count NA substitution
-            ind_NA = 'ATCG'.find(base)
+        # count base change
+        if base in 'ATCG-':
+            ind_NA = 'ATCG-'.find(base)
             peptide.NA_mutations_matrix[i, ind_NA] += 1
 
     return NA_substitutions
@@ -229,14 +227,14 @@ def CompareAAsequences(peptide, sample_seq, codon_table,
             # report if ambiguous codon is encountered
             if codon not in codon_table.keys():
                 ambiguous_codons += 1
+            else:
 
-            # for unambiguous codons report residue change if any
-            elif codon_table[ref_codon] != codon_table[codon]:
+                # for unambiguous codons report residue change if any
+                if codon_table[ref_codon] != codon_table[codon]:
+                    coordinate = peptide.protein_start + (i // 3)
+                    AA_substitutions.append(f"{codon_table[ref_codon]}{coordinate}{codon_table[codon]}")
 
-                coordinate = peptide.protein_start + (i // 3)
-                AA_substitutions.append(f"{codon_table[ref_codon]}{coordinate}{codon_table[codon]}")
-
-                # count AA sunstitution
+                # count AA change
                 ind_AA = 'GALMFWKQESPVICYHRNDT*'.find(codon_table[codon])
                 peptide.AA_mutations_matrix[i // 3, ind_AA] += 1
 
