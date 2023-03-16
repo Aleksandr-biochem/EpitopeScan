@@ -3,9 +3,12 @@ import re
 import os
 import sys
 import time
-sys.path.append(os.path.realpath(os.path.dirname(__file__)))
-from utils import *
 import pandas as pd
+
+sys.path.append(os.path.realpath(os.path.dirname(__file__)))
+from utils.Stat import *
+from utils.SeqAnalysis import *
+from utils.ProteinUtils import *
 
 if __name__ == "__main__":
 
@@ -20,7 +23,7 @@ if __name__ == "__main__":
 	parser_scan.add_argument("-e", "--epitope", help="Input peptide epitope name and sequence comma-separated. E.x. S1,VGYWA", type=str)
 	parser_scan.add_argument("-f", "--file",    help="Or path to input fasta file with multiple peptide epitopes", type=str)
 	parser_scan.add_argument("-m", "--msa",     help="Path to MSA fasta file for analysis", type=str, required=True)
-	parser_scan.add_argument("-o", "--out",     help="Output directory", type=str)
+	parser_scan.add_argument("-o", "--out",     help="Output directory name", type=str)
 	parser_scan.add_argument("-t", "--tag",     help="Sample tag to filter", type=str)
 	parser_scan.add_argument("-q", "--quality_filter", help="Threshold of max N bases proportion in genome. Recommended 0.05", type=float)
 	parser_scan.add_argument("-n", "--no_ambiguity",   help="Discard any sample with ambiguous bases in epitope region", action='store_true')
