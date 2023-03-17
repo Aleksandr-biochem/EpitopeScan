@@ -1,10 +1,11 @@
 import os
-import re
+import sys
 import time
-import numpy as np
 import blosum as bl
 import pandas as pd
 
+sys.path.append(os.path.realpath(os.path.dirname(__file__)))
+from ProteinUtils import *
 
 def StatIndividualMutations(df, blosum_version=90):
     """
