@@ -18,7 +18,7 @@ def StatIndividualMutations(df, blosum_version=90):
     """
     blosum_matrix = bl.BLOSUM(blosum_version)
     
-    stat = df.iloc[:, 3:].apply(lambda x: (x == 1).sum())
+    stat = df.iloc[:, 3:-4].apply(lambda x: (x == 1).sum())
     
     # create stat dictionary
     AA_mutations_stat = dict()
@@ -46,8 +46,8 @@ def CombinationsStat(df, blosum_version=90):
     AA_mutations_stat = dict()
     
     # get mutation combinations
-    all_mutations = set(df.columns[3:])
-    mutations, combinations = df.iloc[:, 3:], []
+    all_mutations = set(df.columns[3:-4])
+    mutations, combinations = df.iloc[:, 3:-4], []
     if mutations.shape[1] > 0:
         combinations = mutations.drop_duplicates()
         combinations = combinations.apply(lambda row: list(row[row == 1].index), axis=1)
@@ -79,7 +79,8 @@ def CombinationsStat(df, blosum_version=90):
 def MutationTextSummary(peptide, df,
                         stat_mutations=0,
                         sort_by=0,
-                        blosum_version=90):
+                        blosum_version=90,
+                        metadata_filter=False):
     """
     Print protein mutation summary to stdout
 
@@ -89,6 +90,9 @@ def MutationTextSummary(peptide, df,
     sort_by - int, 0 to sort mutation report by count, 1 - by BLOSUM score
     blosum_version - BLOSUM version to use for scoring, default 90
     """
+
+    if metadata_filter:
+    	df = df[df['has_metadata'] == 1]
 
     # count and score mutations
     if stat_mutations == 0:
@@ -128,7 +132,8 @@ def MutationTextSummary(peptide, df,
 def StatEpitopeData(input_dir, proteome,reference_genome,
                     stat_mutations=0, sort_by=0,
                     # time_start=None, time_end=None,
-                    blosum_version=90):
+                    blosum_version=90,
+                    metadata_filter=False):
     """
     Print statistics from EpitopeScan results data
 
@@ -158,7 +163,10 @@ def StatEpitopeData(input_dir, proteome,reference_genome,
 
         # headline statistics
         if not printed_headline_statistics:
-            print(f"Found data on {len(peptide_names)} epitopes from {df.shape[0]} samples\n")
+            print(f"Found data on {len(peptide_names)} epitopes from {df.shape[0]} samples")
+            if metadata_filter:
+            	print(f"{sum(df['has_metadata'] == 1)} samples have metadata")
+            print()
             printed_headline_statistics = True
 
         # print corresponding summary
@@ -166,6 +174,7 @@ def StatEpitopeData(input_dir, proteome,reference_genome,
                             df,
                             stat_mutations,
                             sort_by,
-                            blosum_version)
+                            blosum_version,
+                            metadata_filter)
 
     return

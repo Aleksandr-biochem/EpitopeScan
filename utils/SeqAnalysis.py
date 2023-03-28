@@ -224,6 +224,46 @@ def ExpandMutationData(dfs):
 
     return dfs
 
+def BindMetadata(dfs, metadata_file, sample_tag):
+	
+	if not metadata_file is None:
+			print(f"Binding output to metadata from {metadata_file}")
+
+			# read metadata
+			metadata = pd.read_csv(metadata_file, low_memory=False)
+			metadata = metadata[['sequence_name', 'adm1',
+								 'sample_date', 'epi_week',
+								 'usher_lineage']]
+			# filter samples by tag if any
+			if not sample_tag is None:
+				metadata = metadata[metadata['sequence_name'].str.contains(sample_tag)]
+			# bind each output df to data
+			for i in range(len(dfs)):
+			    dfs[i] = dfs[i].merge(metadata, how='left', on='sequence_name')
+			    
+			    # transform adm1 column into feature indicating presence of metadata
+			    dfs[i].rename(columns={'adm1':'has_metadata'}, inplace=True)
+			    dfs[i]['has_metadata'] = dfs[i]['has_metadata'].fillna(0)
+			    dfs[i]['has_metadata'] = dfs[i]['has_metadata'] \
+			    								 .where(dfs[i]['has_metadata'] == 0, 1)
+			    
+			    # transfrom sample_date to datime format
+			    dfs[i]['sample_date']= pd.to_datetime(dfs[i]['sample_date'],
+			    											  format='%Y-%m-%d')
+
+			print(f"Metadata binding finished")
+			print(f"Metadata found for {sum(dfs[0]['has_metadata'] == 1)}")
+			no_metadata = sum(dfs[0]['has_metadata'] == 0)
+			print(f"{no_metadata} samples ({round(no_metadata*100/dfs[0].shape[0], 1)}%) lack metadata\n")
+
+	else: # create dummy columns of Nans
+		for i in range(len(dfs)):
+			dfs[i]['has_metadata'] = 0
+			for col in ['sample_date', 'epi_week', 'usher_lineage']:
+				dfs[i][col] = np.nan	
+
+	return dfs
+
 def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
     """
     Check if the ORF in sample sequence is disrupted
