@@ -33,7 +33,7 @@ def StatIndividualMutations(df, blosum_version=90):
     
 def CombinationsStat(df, blosum_version=90):
     """
-    Count and score protein mutations combinations in data
+    Count and score protein combinationed mutations in data
     
     df - pd DataFrame, mutations data
 
@@ -52,7 +52,7 @@ def CombinationsStat(df, blosum_version=90):
         combinations = mutations.drop_duplicates()
         combinations = combinations.apply(lambda row: list(row[row == 1].index), axis=1)
 
-    # count and scor ecombinations
+    # count and score combinations
     for combination in combinations:
         if len(combination) > 0:
             

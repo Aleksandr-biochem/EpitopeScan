@@ -14,76 +14,81 @@ if __name__ == "__main__":
 
 	import argparse
 
-	parser = argparse.ArgumentParser(description="EpitopeScan. Scan and analyse mutations within SARS-CoV-2 immunigenic peptides from Multiple Sequence Alignment")
+	parser = argparse.ArgumentParser(description="EpitopeScan. Scan and analyse mutations within SARS-CoV-2 peptides from Multiple Sequence Alignment")
 
+	# create subparsers for two operation modes
 	subparsers = parser.add_subparsers(title='Mode', dest='mode')
 	
 	# define scan mode options
-	parser_scan = subparsers.add_parser('scan', help='Scan MSA file for epitope mutations')
-	parser_scan.add_argument("-e", "--epitope", help="Input peptide epitope name and sequence comma-separated. E.x. S1,VGYWA", type=str)
-	parser_scan.add_argument("-f", "--file",    help="Or path to input fasta file with multiple peptide epitopes", type=str)
-	parser_scan.add_argument("-m", "--msa",     help="Path to MSA fasta file for analysis", type=str, required=True)
+	parser_scan = subparsers.add_parser('scan', help='Scan MSA file for peptide mutations')
+	parser_scan.add_argument("-e", "--epitope", help="Input peptide epitope name and sequence, comma separated. E.x. S1,VGYWA", type=str)
+	parser_scan.add_argument("-f", "--file",    help="Or path to fasta file with multiple input peptides", type=str)
+	parser_scan.add_argument("-m", "--msa",     help="Path to input MSA fasta file", type=str, required=True)
 	parser_scan.add_argument("-o", "--out",     help="Output directory name", type=str)
 	parser_scan.add_argument("-t", "--tag",     help="Sample tag to filter", type=str)
 	parser_scan.add_argument("-q", "--quality_filter", help="Threshold of max N bases proportion in genome. Recommended 0.05", type=float)
-	parser_scan.add_argument("-n", "--no_ambiguity",   help="Discard any sample with ambiguous bases in epitope region", action='store_true')
-	parser_scan.add_argument("-b", "--blosum",  help="Define BLOSUM version for mutation scoring. Default 90", type=int, default=90)
-	parser_scan.add_argument("-s", "--sort",    help="Sort mutations in summary by count(0) or score(1). Default 0", type=int, choices=[0, 1], default=0)
-	parser_scan.add_argument("-a", "--stat",    help="Stat individual mutations(0) or mutation combinations(1). Default 0", type=int, choices=[0, 1], default=0)
+	parser_scan.add_argument("-n", "--no_ambiguity",   help="Treat any presence ambiguous bases in peptide region as insufficient coverage", action='store_true')
+	parser_scan.add_argument("-b", "--blosum",  help="BLOSUM version for mutation scoring. Default 90", type=int, default=90)
+	parser_scan.add_argument("-s", "--sort",    help="Sort mutations summary by count(0) or score(1). Default 0", type=int, choices=[0, 1], default=0)
+	parser_scan.add_argument("-a", "--stat",    help="Stat individual mutations(0) or combinations(1). Default 0", type=int, choices=[0, 1], default=0)
 	
 	# define stat mode options
 	parser_stat = subparsers.add_parser('stat', help='Read existing output directory and print stats')	
-	parser_stat.add_argument("-i", "--input",   help="Direcory with scan output to stat", type=str, required=True)
-	parser_stat.add_argument("-b", "--blosum",  help="Define BLOSUM version for mutation scoring. Default 90", type=int, default=90)
-	parser_stat.add_argument("-s", "--sort",    help="Sort mutations in summary by count(0) or score(1). Default 0", type=int, choices=[0, 1], default=0)
-	parser_stat.add_argument("-a", "--stat",    help="Stat individual mutations(0) or mutation combinations(1). Default 0", type=int, choices=[0, 1], default=0)
+	parser_stat.add_argument("-i", "--input",   help="Direcory with scan output", type=str, required=True)
+	parser_stat.add_argument("-b", "--blosum",  help="BLOSUM version for mutation scoring. Default 90", type=int, default=90)
+	parser_scan.add_argument("-s", "--sort",    help="Sort mutations summary by count(0) or score(1). Default 0", type=int, choices=[0, 1], default=0)
+	parser_scan.add_argument("-a", "--stat",    help="Stat individual mutations(0) or combinations(1). Default 0", type=int, choices=[0, 1], default=0)
 
 	args = parser.parse_args()
 
-	# load reference genome
+	## load reference genome 
+	# locate EpitopeSccan on the system
 	script_dir = os.path.realpath(os.path.dirname(__file__))
 	with open(f'{script_dir}/reference_sequences/EPI_ISL_402124.fasta', 'r') as f:
 		lines = f.readlines()
 	reference_genome = lines[1].strip()
 	del lines
 
-	# load reference proteome
+	## load reference proteome
 	proteome = ReadProteinsFromFile(f'{script_dir}/reference_sequences/protein_sequences_reference.fasta')
 
-	# work in scan mode
+	## operation in scan mode
 	if args.mode == 'scan':
 
-		# handle epitope inputs
+		# check peptide inputs
+		# single input peptide
 		if not args.epitope is None:
 			name, seq = args.epitope.split(',')
 			if len(set(seq) - set('GALMFWKQESPVICYHRNDT')) > 0:
-				raise Exception("Epitope sequence contains unrecognised characters")
+				raise Exception("Peptide sequence contains unrecognised characters")
 			epitopes_to_scan = [Protein(name, seq)]
 			print(f"Input epitope {epitopes_to_scan[0].name} {epitopes_to_scan[0].sequence}\n")
+
+		# multiple peptides as fasta
 		elif not args.file is None:
-			# read protein sequences from fasta file
 			epitopes_to_scan = ReadProteinsFromFile(args.file)
 			if len(epitopes_to_scan) > 0:
-				print(f"Found {len(epitopes_to_scan)} input epitopes in {args.file}\n")
+				print(f"Found {len(epitopes_to_scan)} input peptides in {args.file}\n")
 			else:
-				raise Exception("Could not recognise any epitopes from input file")
+				raise Exception("Could not recognise any peptides from input file")
+
 		else:
 			raise Exception("No epitopes provided")
 
-	    # check if MSA file exists
-		if not os.path.exists(args.msa):
-			raise Exception(f"Provided MSA file does not exist, check path")
+	    # a subject to omit later
+		# if not os.path.exists(args.msa):
+		# 	raise Exception(f"Provided MSA file does not exist, check path")
 
 		# map epitopes onto proteome and assign coding DNA sequences
 		epitopes_to_scan  = MapPeptides(epitopes_to_scan,
 									 	proteome,
 									  	reference_genome)
 
-		# compile regex pattern to filter samples if any
+		# compile tag regex pattern if any to filter samples
 		sample_tag = re.compile(args.tag) if args.tag else None
 
-		# scan the MSA data
-		print("Scanning MSA data for epitope mutations...")
+		# scan MSA data
+		print("Scanning MSA data for peptide mutations...")
 		start_time = time.time()
 		output_data = ScanMSA(epitopes_to_scan = epitopes_to_scan,
 							  msa_file = args.msa,
@@ -123,7 +128,7 @@ if __name__ == "__main__":
 
 		print(f"Saved outputs in {output_dir}")
 
-	# work in stat mode
+	## operation in stat mode
 	if args.mode == 'stat':
 
 		print(f"Collecting the data from {args.input}")

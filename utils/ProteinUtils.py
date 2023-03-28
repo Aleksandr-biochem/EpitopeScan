@@ -2,31 +2,27 @@ class Protein:
     """
     Class Protein
 
+    Attributes:
     name - str, protein name
     sequence - str, protein sequence 
     genome_start - int, start coordinate in reference genome
     genome_end - int, end coordinate in reference genome
     parent_protein - list(str), names of parent proteins
-    coding_sequence - string, coding DNA sequence 
-    protein_start - int, start coordinate in a parent protein
-    AA_mutations_matrix - np array, counts of sequence AA substitutions
-    NA_mutations_matrix - np array, counts of sequence NA substitutions
+    coding_sequence - str, coding DNA sequence 
+    protein_start - int, start coordinate in a primary parent protein
+    AA_mutations_matrix - np array, AA substitutions counts
+    NA_mutations_matrix - np array, NA substitutions counts
     """
     
     def __init__(self,
                  name,
-                 sequence,
-                 genome_start = None,
-                 genome_end   = None):
+                 sequence):
         
         self.name = name
         self.sequence = sequence
-        self.genome_start = genome_start
-        if (not genome_start is None) and (genome_end is None):
-            # infere genome end coordinate from start and length
-            self.genome_end = genome_start + (len(sequence) * 3) - 1
-        else:
-            self.genome_end = genome_end
+
+        self.genome_start = None
+        self.genome_end = None
 
         self.parent_protein = list()
         self.protein_start = None
@@ -49,7 +45,7 @@ class Protein:
     
     def LocateSubsequence(self, proteins, verbose=False):
         """
-        Locate the peptide among list of proteins
+        Locate peptide among list of proteins
         Assign genome coordinate accordingly
 
         proteins - list(Protein instances), proteins to scan
@@ -64,11 +60,14 @@ class Protein:
 
                 if sebsequence == self.sequence:
                     
+                    # assign found coordinates
                     if self.genome_start is None:
                         self.genome_start = protein.genome_start + (i * 3)
                         self.genome_end = self.genome_start + (len(self) * 3) - 1
                         self.protein_start = i + 1
                         self.parent_protein.append(protein.name)
+                    
+                    # check the case of multiple match
                     else:
                         # in case of same genome coordinate for overlapping ORFs
                         if self.genome_start == (protein.genome_start + (i * 3)):
@@ -80,7 +79,7 @@ class Protein:
                                 print(f"{self.name} has ambiguous location.")
                                 print(f"First located at {self.genome_start}({self.parent_protein[-1]}), then at {protein.genome_start + (i * 3)}({protein.name})")
         
-        return
+        return self
 
     def AssignCodingSequence(self, reference_genome):
         """
@@ -106,7 +105,9 @@ def ReadProteinsFromFile(file):
         for line in f:
             if line.startswith('>'):
                 name = line[1:].strip()
-                genome_start = None
+                genome_start, genome_end = None, None
+
+                # get start coordinate for reference proteins
                 if '/' in line:
                     name, genome_start = name.split('/')
                     genome_start = int(genome_start)
@@ -115,7 +116,12 @@ def ReadProteinsFromFile(file):
                 if len(set(seq) - set('GALMFWKQESPVICYHRNDT')) > 0:
                     print(f"Warning! Protein {name} sequence contains unrecognised characters")
                 else:
-                    proteins.append(Protein(name, seq, genome_start))
+                    if not genome_start is None:
+                        genome_end = genome_start + (len(seq) * 3) - 1
+                    new_protein = Protein(name, seq)
+                    new_protein.genome_start = genome_start
+                    new_protein.genome_end = genome_end
+                    proteins.append(new_protein)
     return proteins
 
 def MapPeptides(peptides, proteome, ref_genome, verbose=True):
@@ -140,10 +146,11 @@ def MapPeptides(peptides, proteome, ref_genome, verbose=True):
         # check if peptide was located successfully
         if peptide.genome_start is None:
             couldnt_map += 1
+        # check ambiguous location
         elif peptide.genome_start == -1:
             mapped_ambiguously += 1
         else:
-            # get coding DNA sequence for  successfully mapped peptide
+            # assign coding DNA sequence for mapped peptide
             peptide.AssignCodingSequence(ref_genome)
             mapped_peptides.append(peptide)
 

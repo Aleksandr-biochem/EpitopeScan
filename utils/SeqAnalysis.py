@@ -17,7 +17,7 @@ def CompareNAsequences(peptide, sample_seq):
     list(str) list of mutations
     """
     
-    NA_substitutions = [] # list of NA sunstitutions and deletions
+    NA_substitutions = [] # list of NA substitutions and deletions
 
     # compare all bases
     for i, (ref_base, base) in enumerate(zip(peptide.coding_sequence, sample_seq)):
@@ -30,7 +30,7 @@ def CompareNAsequences(peptide, sample_seq):
         elif (ref_base != base) and (base in 'ATCG'):
             NA_substitutions.append(f"{ref_base}{peptide.genome_start + i}{base}")
 
-        # count base change
+        # count unambiguous bases and deletions
         if base in 'ATCG-':
             ind_NA = 'ATCG-'.find(base)
             peptide.NA_mutations_matrix[i, ind_NA] += 1
@@ -40,12 +40,12 @@ def CompareNAsequences(peptide, sample_seq):
 def CompareAAsequences(peptide, sample_seq, codon_table,
                        ambiguity_intolerance=False):
     """
-    Compare DNA sequences to find NA and AA substitutions
+    Compare sequences to find AA substitutions
     
     peptide - Protein instance, peptide for comparison
     sample_seq - str, sample DNA sequence to compare
     codon_table - dict, DNA codon table
-    ambiguity_intolerance - bool, discard any sequence with ambiguous bases
+    ambiguity_intolerance - bool, treat any ambiguous bases as no coverage
 
     Returns:
     list(str) AA substitutions and deletions
@@ -76,7 +76,7 @@ def CompareAAsequences(peptide, sample_seq, codon_table,
                     coordinate = peptide.protein_start + (i // 3)
                     AA_substitutions.append(f"{codon_table[ref_codon]}{coordinate}{codon_table[codon]}")
 
-                # count AA change
+                # count residue
                 ind_AA = 'GALMFWKQESPVICYHRNDT*'.find(codon_table[codon])
                 peptide.AA_mutations_matrix[i // 3, ind_AA] += 1
 
@@ -96,9 +96,9 @@ def ReportSequenceMuatations(peptide, genome_seq,
     against reference sequence
 
     peptide - Protein instance, peptide for comparison
-    genome_seq - str, full aligned sample genome sequence
+    genome_seq - str, aligned sample genome sequence
     codon_table - dict, DNA codon table
-    ambiguity_intolerance - bool, discard sequence with ambiguous bases
+    ambiguity_intolerance - bool, treat any ambiguous bases as no coverage
 
     Returns:
     list(str, str) - NA mutations and AA mutations
@@ -189,8 +189,7 @@ def ReportSequenceMuatations(peptide, genome_seq,
 
 def ExpandMutationData(dfs):
     """
-    Transform AA mutation column in DataFrame 
-    into several columns signifying presence of distinc mutations
+    Transform AA mutation column in DataFrame One-Hot Encoding style
 
     dfs - list(pd DataFrame), list of dataFrames to expand
 
@@ -208,7 +207,7 @@ def ExpandMutationData(dfs):
                 for mut in muts_list:
                     unique_AA_mutations.add(mut)
 
-        # create dataframe columns
+        # create dataframe of 0
         AA_substitution_df = pd.DataFrame(0,
                                           index=np.arange(dfs[i].shape[0]),
                                           columns=unique_AA_mutations)
@@ -220,13 +219,14 @@ def ExpandMutationData(dfs):
                 for mut in muts_list:
                     AA_substitution_df.loc[j, mut] = 1
 
+        # concat dataframes
         dfs[i] = pd.concat([dfs[i], AA_substitution_df], axis=1)
 
     return dfs
 
 def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
     """
-    Check if the reading frame in sample sequence is disrupted
+    Check if the ORF in sample sequence is disrupted
     
     orf_start - int, ORF start coordinate in genome
     orf_end - int, ORF end coordinate in genome
@@ -239,8 +239,8 @@ def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
     # get ORF sequence
     ORF_sequence = genome_sequence[orf_start - 1:orf_end]
 
+    frame_disrupted = False
     if '-' in ORF_sequence:  
-        frame_disrupted = False
         gap_start, gap_end = None, None
 
         # scan sequence by codons
@@ -259,8 +259,7 @@ def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
                             frame_disrupted = True
                             return frame_disrupted
                         gap_start, gap_end = None, None
-    else:
-        frame_disrupted = False
+
 
     return frame_disrupted
 
@@ -274,6 +273,8 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None,
     msa_file - string, path to MSA file
     sample_tag - compiled regex, sample tag to subset
     varbose - bool, print key statistics at the end, default False
+    quality_filter - float, max N base proportion to tolerate
+    ambiguity_intolerance - bool, treat any ambiguous bases as no coverage
 
     Returns:
     list(pd DataFrame) - list of DataFrames with mutation data for each peptide
@@ -316,21 +317,21 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None,
         'TGC':'C', 'TGT':'C', 'TGA':'*', 'TGG':'W'
     }
 
-    # define samples have to be filtered by tag
+    # define if samples have to be filtered by tag
     filter_samples = True if (not sample_tag is None) else False
     
     # parse MSA file and analyse each sequence
     df = [] # list to append extracted mutatiuon data
     with open(msa_file, 'r') as f:
 
-        # record checkpoint time for reports
+        # initiate checkpoint time for reports
         time_checkpoint = time.time()
 
         for line in f:
 
             if line.startswith('>'):
 
-                total_samples += 1 # count total parssed samples
+                total_samples += 1 # count total parsed samples
                 sample_name = line.strip()[1:] # get sample name
                 new_row = [sample_name]
 
