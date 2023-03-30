@@ -3,7 +3,9 @@ import re
 import os
 import sys
 import time
+import numpy as np
 import pandas as pd
+from datetime import datetime
 
 sys.path.append(os.path.realpath(os.path.dirname(__file__)))
 from utils.Stat import *
@@ -19,11 +21,14 @@ if __name__ == "__main__":
 	# create subparsers for two operation modes
 	subparsers = parser.add_subparsers(title='Mode', dest='mode')
 	
-	# define scan mode options
+	# define scan mode key options
 	parser_scan = subparsers.add_parser('scan', help='Scan MSA file for peptide mutations')
 	parser_scan.add_argument("-e", "--epitope", help="Input peptide epitope name and sequence, comma separated. E.x. S1,VGYWA", type=str)
 	parser_scan.add_argument("-f", "--file",    help="Or path to fasta file with multiple input peptides", type=str)
-	parser_scan.add_argument("-m", "--msa",     help="Path to input MSA fasta file", type=str, required=True)
+	parser_scan.add_argument("--msa", 			help="Path to input MSA fasta file", type=str, required=True)
+	parser_scan.add_argument("--metadata",    	help="Metadata .csv file to bind with mutaion data", type=str)
+	
+	# scan mode additional options
 	parser_scan.add_argument("-o", "--out",     help="Output directory name", type=str)
 	parser_scan.add_argument("-t", "--tag",     help="Sample tag to filter", type=str)
 	parser_scan.add_argument("-q", "--quality_filter", help="Threshold of max N bases proportion in genome. Recommended 0.05", type=float)
@@ -31,13 +36,18 @@ if __name__ == "__main__":
 	parser_scan.add_argument("-b", "--blosum",  help="BLOSUM version for mutation scoring. Default 90", type=int, default=90)
 	parser_scan.add_argument("-s", "--sort",    help="Sort mutations summary by count(0) or score(1). Default 0", type=int, choices=[0, 1], default=0)
 	parser_scan.add_argument("-a", "--stat",    help="Stat individual mutations(0) or combinations(1). Default 0", type=int, choices=[0, 1], default=0)
-	
+	parser_scan.add_argument("--stat_with_metadata", help="Only stat samples with metadata", action='store_true')
+
+
 	# define stat mode options
 	parser_stat = subparsers.add_parser('stat', help='Read existing output directory and print stats')	
 	parser_stat.add_argument("-i", "--input",   help="Direcory with scan output", type=str, required=True)
 	parser_stat.add_argument("-b", "--blosum",  help="BLOSUM version for mutation scoring. Default 90", type=int, default=90)
-	parser_scan.add_argument("-s", "--sort",    help="Sort mutations summary by count(0) or score(1). Default 0", type=int, choices=[0, 1], default=0)
-	parser_scan.add_argument("-a", "--stat",    help="Stat individual mutations(0) or combinations(1). Default 0", type=int, choices=[0, 1], default=0)
+	parser_stat.add_argument("-s", "--sort",    help="Sort mutations summary by count(0) or score(1). Default 0", type=int, choices=[0, 1], default=0)
+	parser_stat.add_argument("-a", "--stat",    help="Stat individual mutations(0) or combinations(1). Default 0", type=int, choices=[0, 1], default=0)
+	parser_stat.add_argument("--stat_with_metadata", help="Only stat samples with metadata", action='store_true')
+	parser_stat.add_argument("--start_date",    help="Subset after this date, dd/mm/yyyy", type=str)
+	parser_stat.add_argument("--end_date",      help="Subset before this date, dd/mm/yyyy", type=str)
 
 	args = parser.parse_args()
 
@@ -97,13 +107,20 @@ if __name__ == "__main__":
 							  ambiguity_intolerance = args.no_ambiguity)
 		print(f"Finished scan. Run time: {round(time.time() - start_time, 2)} s.\n")
 
-		# print key summary
+		## bind output DataFrames to MetaData
+		BindMetadata(output_data, args.metadata, sample_tag)		
+
+		# print key mutation summary
+		if args.stat_with_metadata:
+			print("Only calculating mutation stats for samples with metadata\n")
+
 		for epitope, data in zip(epitopes_to_scan, output_data):
 			MutationTextSummary(epitope,
 								data,
 								stat_mutations=args.stat,
 								sort_by=args.sort,
-								blosum_version=args.blosum)
+								blosum_version=args.blosum,
+								metadata_filter=args.stat_with_metadata)
 
 		# create output direcrories and save files
 		output_dir = args.out if args.out else f"EpitopeScan_{time.strftime('%Y%m%d_%H%M%S')}"
@@ -131,12 +148,18 @@ if __name__ == "__main__":
 	## operation in stat mode
 	if args.mode == 'stat':
 
-		print(f"Collecting the data from {args.input}")
-		
+		print(f"Collecting the data from {args.input}...\n")
+
+		start_date = datetime.strptime(args.start_date, '%d/%m/%Y') if not args.start_date is None else None
+		end_date   = datetime.strptime(args.end_date, '%d/%m/%Y') if not args.end_date is None else None
+
 		StatEpitopeData(args.input,
 						proteome,
 						reference_genome,
 						stat_mutations=args.stat,
 						sort_by=args.sort,
-						blosum_version=args.blosum)
+						time_start=start_date,
+						time_end=end_date,
+						blosum_version=args.blosum,
+						metadata_filter=args.stat_with_metadata)
 
