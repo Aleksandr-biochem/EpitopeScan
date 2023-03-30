@@ -104,10 +104,19 @@ def ReportSequenceMuatations(peptide, genome_seq,
     list(str, str) - NA mutations and AA mutations
     """
 
-    # get the coding sequence
-    sample_seq = genome_seq[peptide.genome_start - 1:peptide.genome_end] 
+    # ORF1ab -1 frameshift genome coordinate
+    orf_shift_coord = 13204
 
-    # compare DNA and translated protein sequences 
+    # get the coding sequence
+    if (peptide.parent_protein[0] == 'Plp1ab') and \
+       ((peptide.genome_start < orf_shift_coord - 1) and \
+       (orf_shift_coord < peptide.genome_end)):
+        sample_seq = genome_seq[peptide.genome_start - 1:orf_shift_coord - 1] + \
+                     genome_seq[orf_shift_coord - 1:peptide.genome_end]
+    else:
+    	sample_seq = genome_seq[peptide.genome_start - 1:peptide.genome_end] 
+
+    ## compare DNA and translated protein sequences 
 
     # if sequence is deleted completely - shortcut 
     if sample_seq.count('-') == len(sample_seq):

@@ -50,6 +50,10 @@ class Protein:
 
         proteins - list(Protein instances), proteins to scan
         """
+        
+        # 1st Plp1ab resisue produced by shift
+        prot_shift_coord = 4314
+
         for protein in proteins:
                 
             # scan the protein to locate the sequence
@@ -59,22 +63,35 @@ class Protein:
                 sebsequence = protein[i:i + len(self)]
 
                 if sebsequence == self.sequence:
+
+                    genome_start_coordinate = protein.genome_start + (i * 3)
+                    genome_end_coordinate = genome_start_coordinate + (len(self) * 3) - 1
+
+                    # account for shift in Plp1ab if any
+                    if (protein.name == 'Plp1ab'):
+                        if i >= prot_shift_coord - 1:
+                            genome_start_coordinate -= 1
+                            genome_end_coordinate -= 1
+                        else:
+                            if (i + len(self) - 1) >= prot_shift_coord - 1:
+                                genome_end_coordinate -= 1
                     
                     # assign found coordinates
                     if self.genome_start is None:
-                        self.genome_start = protein.genome_start + (i * 3)
-                        self.genome_end = self.genome_start + (len(self) * 3) - 1
+                        self.genome_start = genome_start_coordinate
+                        self.genome_end = genome_end_coordinate
                         self.protein_start = i + 1
                         self.parent_protein.append(protein.name)
-                    
+
                     # check the case of multiple match
                     else:
                         # in case of same genome coordinate for overlapping ORFs
-                        if self.genome_start == (protein.genome_start + (i * 3)):
+                        if self.genome_start == genome_start_coordinate:
                             self.parent_protein.append(protein.name)
                         else:
                             # in case of ambiguous location
                             self.genome_start = -1
+                            self.genome_end = -1
                             if verbose:
                                 print(f"{self.name} has ambiguous location.")
                                 print(f"First located at {self.genome_start}({self.parent_protein[-1]}), then at {protein.genome_start + (i * 3)}({protein.name})")
@@ -87,8 +104,21 @@ class Protein:
 
         reference_genome - str, reference genome sequence
         """
+
+        # ORF1ab -1 frameshift genome coordinate
+        orf_shift_coord = 13204
+
         if (not self.genome_start is None) and (not self.genome_start == -1):
-            self.coding_sequence = reference_genome[self.genome_start - 1:self.genome_end]
+            # account for -1 shift in ORF1ab is enciuntered
+            if (self.genome_start < orf_shift_coord - 1) and \
+               (orf_shift_coord < self.genome_end) :
+               self.coding_sequence = reference_genome[self.genome_start - 1:orf_shift_coord - 1] + \
+                                      reference_genome[orf_shift_coord - 1:self.genome_end]
+            # in case of no shift
+            else:
+                self.coding_sequence = reference_genome[self.genome_start - 1:self.genome_end]
+        else:
+            peint(f"Warning! Cannot assign coding sequence to {self.name} due to indefinite coordinates")
         return
 
 def ReadProteinsFromFile(file):
