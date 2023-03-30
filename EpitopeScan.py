@@ -115,12 +115,12 @@ if __name__ == "__main__":
 			print("Only calculating mutation stats for samples with metadata\n")
 
 		for epitope, data in zip(epitopes_to_scan, output_data):
+			df = data[data['has_metadata'] == 1] if args.stat_with_metadata else data
 			MutationTextSummary(epitope,
-								data,
+								df,
 								stat_mutations=args.stat,
 								sort_by=args.sort,
-								blosum_version=args.blosum,
-								metadata_filter=args.stat_with_metadata)
+								blosum_version=args.blosum)
 
 		# create output direcrories and save files
 		output_dir = args.out if args.out else f"EpitopeScan_{time.strftime('%Y%m%d_%H%M%S')}"
