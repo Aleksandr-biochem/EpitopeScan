@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import glob
 import blosum as bl
 import pandas as pd
 
@@ -156,15 +157,25 @@ def StatEpitopeData(input_dir,
     metadata_filter - bool, filter samples with metadata
     """
 
-    # list peptide names to analyse 
-    peptide_names = next(os.walk(input_dir))[1]
+    # check if we work with one or several peptides
+    list_dir = [os.path.isfile(os.path.join(input_dir, f)) for f in os.listdir(input_dir)]
+    one_peptide = all(list_dir)
+
+	# list peptide names to analyse 
+    if one_peptide:
+        peptide_names = glob.glob(f"{input_dir}/*.tsv")[0]
+        peptide_names = [peptide_names.split('/')[-1].split('_')[0]]
+        prefixes = [f"{input_dir}/"]
+    else:
+        peptide_names = next(os.walk(input_dir))[1]
+        prefixes = [f"{input_dir}/{name}/" for name in peptide_names]
 
     # read data and calculate statistics for each peptide
     printed_headline_statistics, message = False, ''
-    for name in peptide_names:
+    for name, prefix in zip(peptide_names, prefixes):
 
         # extract peptide sequence
-        matrix = pd.read_csv(f"{input_dir}/{name}/{name}_AA_mutation_matrix.csv", index_col=0)
+        matrix = pd.read_csv(f"{prefix}{name}_AA_mutation_matrix.csv", index_col=0)
         peptide = Protein(name, ''.join(matrix.index))
 
         # map peptide onto proteome
@@ -174,7 +185,7 @@ def StatEpitopeData(input_dir,
                               verbose=False)[0]
 
         # read mutation data
-        df = pd.read_csv(f"{input_dir}/{name}/{name}_mutation_data.tsv",
+        df = pd.read_csv(f"{prefix}{name}_mutation_data.tsv",
                          sep='\t', index_col=0)
 
         # convert sample_date to datetime
