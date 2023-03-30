@@ -207,6 +207,9 @@ def ExpandMutationData(dfs):
                 for mut in muts_list:
                     unique_AA_mutations.add(mut)
 
+        if len(unique_AA_mutations) == 0:
+        	continue
+
         # create dataframe of 0
         AA_substitution_df = pd.DataFrame(0,
                                           index=np.arange(dfs[i].shape[0]),

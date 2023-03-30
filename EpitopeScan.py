@@ -85,10 +85,6 @@ if __name__ == "__main__":
 		else:
 			raise Exception("No epitopes provided")
 
-	    # a subject to omit later
-		# if not os.path.exists(args.msa):
-		# 	raise Exception(f"Provided MSA file does not exist, check path")
-
 		# map epitopes onto proteome and assign coding DNA sequences
 		epitopes_to_scan  = MapPeptides(epitopes_to_scan,
 									 	proteome,
@@ -110,7 +106,7 @@ if __name__ == "__main__":
 		## bind output DataFrames to MetaData
 		BindMetadata(output_data, args.metadata, sample_tag)		
 
-		# print key mutation summary
+		## print key mutation summary
 		if args.stat_with_metadata:
 			print("Only calculating mutation stats for samples with metadata\n")
 
@@ -122,31 +118,46 @@ if __name__ == "__main__":
 								sort_by=args.sort,
 								blosum_version=args.blosum)
 
-		# create output direcrories and save files
-		output_dir = args.out if args.out else f"EpitopeScan_{time.strftime('%Y%m%d_%H%M%S')}"
+		## create output directories and save files
+		print("Saving output...")
+		# create main out dir
+		if len(epitopes_to_scan) == 1:
+			default_name = f"EpitopeScan_{epitopes_to_scan[0].name}_{time.strftime('%Y%m%d_%H%M%S')}"
+		else:
+			default_name = f"EpitopeScan_{time.strftime('%Y%m%d_%H%M%S')}"
+		output_dir = args.out if args.out else default_name
 		os.makedirs(output_dir, exist_ok=True)
+		os.chdir(f"./{output_dir}")
+
 		for epitope, data in zip(epitopes_to_scan, output_data):
-			os.makedirs(f"{output_dir}/{epitope.name}", exist_ok=True) # create epitope subdir
-			
+
+			# for multiple epitopes create subdirs
+			if len(epitopes_to_scan) > 1:
+				os.makedirs(epitope.name, exist_ok=True) # create epitope subdir
+				os.chdir(f"./{epitope.name}")
+
 			# save AA substitution matrix
 			matrix = pd.DataFrame(epitope.AA_mutations_matrix,
 					              index=list(epitope.sequence),
 					              columns=list('GALMFWKQESPVICYHRNDT*Δ'))
-			matrix.to_csv(f"{output_dir}/{epitope.name}/{epitope.name}_AA_mutation_matrix.csv")
+			matrix.to_csv(f"{epitope.name}_AA_mutation_matrix.csv")
 
 			# save NA substitution matrix
 			matrix = pd.DataFrame(epitope.NA_mutations_matrix,
 					              index=list(epitope.coding_sequence),
 					              columns=list('ATCGΔ'))
-			matrix.to_csv(f"{output_dir}/{epitope.name}/{epitope.name}_NA_mutation_matrix.csv")
+			matrix.to_csv(f"{epitope.name}_NA_mutation_matrix.csv")
 			
 			# save output dataframes
-			data.to_csv(f"{output_dir}/{epitope.name}/{epitope.name}_mutation_data.tsv", sep='\t')
+			data.to_csv(f"{epitope.name}_mutation_data.tsv", sep='\t')
+
+			if len(epitopes_to_scan) > 1:
+				os.chdir("../")
 
 		print(f"Saved outputs in {output_dir}")
 
 	## operation in stat mode
-	if args.mode == 'stat':
+	elif args.mode == 'stat':
 
 		print(f"Collecting the data from {args.input}...\n")
 
