@@ -26,7 +26,7 @@ def StatIndividualMutations(df, blosum_version=90):
         if 'Δ' in item[0]:
             score = -6.0
         else:
-            score = blosum_matrix[f"{item[0][0]}{item[0][-1]}"]
+            score = blosum_matrix[item[0][0]][item[0][-1]]
         AA_mutations_stat[item[0]] = (item[1], score)
 
     return AA_mutations_stat
@@ -70,7 +70,7 @@ def CombinationsStat(df, blosum_version=90):
                 if 'Δ' in mut:
                     score -= 6.0
                 else:
-                    score += blosum_matrix[f"{mut[0]}{mut[-1]}"]
+                    score += blosum_matrix[mut[0]][mut[-1]]
 
             AA_mutations_stat[','.join(combination)] = (count, score)
     
