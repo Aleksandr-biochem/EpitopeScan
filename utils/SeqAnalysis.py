@@ -213,7 +213,7 @@ def ExpandMutationData(dfs):
         # create dataframe of 0
         AA_substitution_df = pd.DataFrame(0,
                                           index=np.arange(dfs[i].shape[0]),
-                                          columns=unique_AA_mutations)
+                                          columns=list(unique_AA_mutations))
         
         # fill dataframe columns
         for j, muts in enumerate(dfs[i]['AA_mutations']):
