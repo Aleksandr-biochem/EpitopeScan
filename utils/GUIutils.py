@@ -101,7 +101,7 @@ def PrintKeyStat(peptide_name, mutation_data, stat_only_metadata):
 	have_mutation = have_mutation - no_mutation - no_coverage - non_functional
 
 	start_date = mutation_data['sample_date'].min().strftime('%d/%m/%Y')
-	end_date = mutation_data['sample_date'].min().strftime('%d/%m/%Y')
+	end_date = mutation_data['sample_date'].max().strftime('%d/%m/%Y')
 
 	# create dictionary
 	key_stat = {'Have mutation' : have_mutation,
@@ -264,18 +264,18 @@ def StatMutations(df,
                   report_proportion=False,
                   time_start=None,
                   time_end=None):
-	"""
-	Calculate statistics per mutation
+    """
+    Calculate statistics per mutation
 
-	df - pd DataFrame, mutation data to stat
-	mutations - list(str), list of mutations to stat
-	report_proportion - bool, report proportion instead of counts
-	time_start - datetime, start date to filter
-	time_end - datetime, end time to filter
+    df - pd DataFrame, mutation data to stat
+    mutations - list(str), list of mutations to stat
+    report_proportion - bool, report proportion instead of counts
+    time_start - datetime, start date to filter
+    time_end - datetime, end time to filter
 
-	Returns:
-	stat_df - pd DataFrame, calculated statistic per mutation
-	"""
+    Returns:
+    stat_df - pd DataFrame, calculated statistic per mutation
+    """
 
     df['epi_week'] = df['epi_week'].astype('int32')
     
@@ -343,18 +343,18 @@ def PlotMutationStat(df,
                      mutations,
                      plot_proportion=False,
                      time_start=None, time_end=None):
-	"""
-	Assemble bar chart of mutation statistics per week
+    """
+    Assemble bar chart of mutation statistics per week
 
-	df - pd DataFrame, mutation data to stat
-	mutations - list(str), list of mutations to stat
-	report_proportion - bool, report proportion instead of counts
-	time_start - datetime, start date to filter
-	time_end - datetime, end time to filter
+    df - pd DataFrame, mutation data to stat
+    mutations - list(str), list of mutations to stat
+    report_proportion - bool, report proportion instead of counts
+    time_start - datetime, start date to filter
+    time_end - datetime, end time to filter
 
-	Returns:
-	fig - go.Figure, assembled figure
-	"""
+    Returns:
+    fig - go.Figure, assembled figure
+    """
     
     # get statistics
     stat = StatMutations(df, mutations, plot_proportion)
@@ -385,15 +385,15 @@ def PlotMutationStat(df,
 
 @st.cache_data
 def PlotSeqConservation(NA_matrix, AA_matrix):
-	"""
-	Assemble bar chart of overall AA and NA sequence conservation
+    """
+    Assemble bar chart of overall AA and NA sequence conservation
 
-	NA_matrix - pd DataFrame, NA substitution count matrix
-	AA_matrix - pd DataFrame, AA substitution count matrix
+    NA_matrix - pd DataFrame, NA substitution count matrix
+    AA_matrix - pd DataFrame, AA substitution count matrix
 
-	Returns:
-	fig - go.Figure, assembled figure
-	"""
+    Returns:
+    fig - go.Figure, assembled figure
+    """
     
     # calculate conservation
     NA_matrix = NA_matrix.apply(lambda row: row/row.sum(), axis=1)
@@ -441,18 +441,18 @@ def StatLineages(df,
                  mutations,
                  report_proportion,
                  time_start=None, time_end=None):
-	"""
-	Aggreagate samples data by lineage and mutations
+    """
+    Aggreagate samples data by lineage and mutations
 
-	df - pd DataFrame, mutation data to stat
-	mutations - list(str), list of mutations to stat
-	report_proportion - bool, report proportion instead of counts
-	time_start - datetime, start date to filter
-	time_end - datetime, end time to filter
+    df - pd DataFrame, mutation data to stat
+    mutations - list(str), list of mutations to stat
+    report_proportion - bool, report proportion instead of counts
+    time_start - datetime, start date to filter
+    time_end - datetime, end time to filter
 
-	Returns:
-	lineage_counts - pd.DataFrame, sample data aggregated by lineage and mutation
-	"""
+    Returns:
+    lineage_counts - pd.DataFrame, sample data aggregated by lineage and mutation
+    """
     
     # filter by date if necessary
     if not time_start is None:

@@ -131,6 +131,7 @@ def MutationStatSection(peptide, mutation_data):
 
 		with col1:
 			stat_as = st.selectbox('Stat mutations as', ('individual', 'combinations'), key=2)
+			stat_as_key = 0 if stat_as == 'individual' else 1
 		with col2:
 			blosum_v = st.text_input('BLOSUM score version', '90')
 			blosum_v = int(blosum_v)
@@ -168,12 +169,12 @@ def MutationStatSection(peptide, mutation_data):
 
 			summary = MutationTextSummary(peptide,
 										  filtered_mutation_data,
-					                      stat_mutations=0,
+					                      stat_mutations=stat_as_key,
 					                      sort_by=0,
 					                      blosum_version=blosum_v)
 			
 			with col1:
-				st.write("**Mutations summarised:**")
+				st.write(f"**Mutations summarised from {filtered_mutation_data.shape[0]} samples:**")
 				st.write(summary)
 
 		# mutation selection for plotting
