@@ -89,6 +89,9 @@ def MutationTextSummary(peptide, df,
     stat_mutations - int, 0 to stat individual mutations, 1 - mutation combinations
     sort_by - int, 0 to sort mutation report by count, 1 - by BLOSUM score
     blosum_version - BLOSUM version to use for scoring, default 90
+
+    Returns:
+    summary_table - pd DataFrame
     """
 
     # count and score mutations
@@ -106,8 +109,6 @@ def MutationTextSummary(peptide, df,
 
     # remove 0 counts
     AA_mutations_stat = {k:v for k, v in AA_mutations_stat.items() if v[0] > 0}
-    
-    print(f"{len(AA_mutations_stat)} mutations for {peptide.name}")
     
     summary_table = []
     for mut in AA_mutations_stat:
@@ -130,9 +131,8 @@ def MutationTextSummary(peptide, df,
     
     # print the summary
     summary_table = pd.DataFrame(summary_table, columns = [peptide.sequence, ' ', 'count', 'score'])
-    print(summary_table)
-    print()                    
-    return
+
+    return summary_table
 
 def StatEpitopeData(input_dir,
 					proteome,
@@ -224,10 +224,14 @@ def StatEpitopeData(input_dir,
             printed_headline_statistics = True
 
         # print corresponding summary
-        MutationTextSummary(peptide,
-                            df,
-                            stat_mutations,
-                            sort_by,
-                            blosum_version)
+        summary = MutationTextSummary(peptide,
+		                            df,
+		                            stat_mutations,
+		                            sort_by,
+		                            blosum_version)
+        
+        print(print(f"{summary.shape[0]} mutations for {peptide.name}"))
+        print(summary)
+        print()
 
     return
