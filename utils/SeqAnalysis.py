@@ -105,14 +105,14 @@ def ReportSequenceMuatations(peptide, genome_seq,
     """
 
     # ORF1ab -1 frameshift genome coordinate
-    orf_shift_coord = 13204
+    orf_shift_coord = 13469
 
     # get the coding sequence
     if (peptide.parent_protein[0] == 'Plp1ab') and \
        ((peptide.genome_start < orf_shift_coord - 1) and \
        (orf_shift_coord < peptide.genome_end)):
         sample_seq = genome_seq[peptide.genome_start - 1:orf_shift_coord - 1] + \
-                     genome_seq[orf_shift_coord - 1:peptide.genome_end]
+                     genome_seq[orf_shift_coord - 2:peptide.genome_end]
     else:
     	sample_seq = genome_seq[peptide.genome_start - 1:peptide.genome_end] 
 

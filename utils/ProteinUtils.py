@@ -52,7 +52,7 @@ class Protein:
         """
         
         # 1st Plp1ab resisue produced by shift
-        prot_shift_coord = 4314
+        prot_shift_coord = 4402 # 4314
 
         for protein in proteins:
                 
@@ -88,13 +88,15 @@ class Protein:
                         # in case of same genome coordinate for overlapping ORFs
                         if self.genome_start == genome_start_coordinate:
                             self.parent_protein.append(protein.name)
-                        else:
+                        elif protein.name != 'NSP12':
                             # in case of ambiguous location
                             self.genome_start = -1
                             self.genome_end = -1
                             if verbose:
                                 print(f"{self.name} has ambiguous location.")
                                 print(f"First located at {self.genome_start}({self.parent_protein[-1]}), then at {protein.genome_start + (i * 3)}({protein.name})")
+                        else:
+                            self.parent_protein.append(protein.name)
         
         return self
 
@@ -106,14 +108,14 @@ class Protein:
         """
 
         # ORF1ab -1 frameshift genome coordinate
-        orf_shift_coord = 13204
+        orf_shift_coord = 13469
 
         if (not self.genome_start is None) and (not self.genome_start == -1):
             # account for -1 shift in ORF1ab is enciuntered
             if (self.genome_start < orf_shift_coord - 1) and \
                (orf_shift_coord < self.genome_end) :
                self.coding_sequence = reference_genome[self.genome_start - 1:orf_shift_coord - 1] + \
-                                      reference_genome[orf_shift_coord - 1:self.genome_end]
+                                      reference_genome[orf_shift_coord - 2:self.genome_end]
             # in case of no shift
             else:
                 self.coding_sequence = reference_genome[self.genome_start - 1:self.genome_end]
