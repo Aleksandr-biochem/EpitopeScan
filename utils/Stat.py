@@ -225,13 +225,13 @@ def StatEpitopeData(input_dir,
 
         # print corresponding summary
         summary = MutationTextSummary(peptide,
-		                            df,
-		                            stat_mutations,
-		                            sort_by,
-		                            blosum_version)
+		                             df,
+		                             stat_mutations,
+		                             sort_by,
+		                             blosum_version)
         
-        print(print(f"{summary.shape[0]} mutations for {peptide.name}"))
-        print(summary)
+        print(f"{summary.shape[0]} mutations for {peptide.name}")
+        print(summary.to_string())
         print()
 
     return

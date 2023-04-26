@@ -112,11 +112,14 @@ if __name__ == "__main__":
 
 		for epitope, data in zip(epitopes_to_scan, output_data):
 			df = data[data['has_metadata'] == 1] if args.stat_with_metadata else data
-			MutationTextSummary(epitope,
-								df,
-								stat_mutations=args.stat,
-								sort_by=args.sort,
-								blosum_version=args.blosum)
+			summary = MutationTextSummary(epitope,
+										  df,
+										  stat_mutations=args.stat,
+										  sort_by=args.sort,
+										  blosum_version=args.blosum)
+			print(f"{summary.shape[0]} mutations for {epitope.name}")
+			print(summary.to_string())
+			print()
 
 		## create output directories and save files
 		print("Saving output...")
