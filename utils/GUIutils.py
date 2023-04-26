@@ -500,7 +500,7 @@ def StatLineages(df,
         lineage_counts[col] = lineage_counts[col].astype(int)
     
     if report_proportion:
-        for col in lineage_counts.columns[1:]:
+        for col in lineage_counts.columns[2:]:
             lineage_counts[col] = lineage_counts[col] / lineage_counts['n_samples']
         lineage_counts.drop(columns=['n_samples'], inplace=True)
     
