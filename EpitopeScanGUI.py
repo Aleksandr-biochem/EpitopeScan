@@ -232,10 +232,10 @@ def LineageStatSection(peptide, mutation_data):
 	with st.spinner(f"Generating lineage statistics..."):
 
 		summary2 = MutationTextSummary(peptide,
-									  mutation_data[mutation_data['has_metadata'] == 1],
-				                      stat_mutations=0,
-				                      sort_by=0,
-				                      blosum_version=90)
+									   mutation_data[mutation_data['has_metadata'] == 1],
+				                       stat_mutations=0,
+				                       sort_by=0,
+				                       blosum_version=90)
 		found_mutations2 = summary2.iloc[:, 1].values
 
 		# get lineage summary
