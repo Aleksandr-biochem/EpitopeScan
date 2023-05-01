@@ -109,12 +109,14 @@ def ReportSequenceMuatations(peptide, genome_seq,
 
     # get the coding sequence
     if (peptide.parent_protein[0] == 'Plp1ab') and \
-       ((peptide.genome_start < orf_shift_coord - 1) and \
+       ((peptide.genome_start < orf_shift_coord) and \
        (orf_shift_coord < peptide.genome_end)):
         sample_seq = genome_seq[peptide.genome_start - 1:orf_shift_coord - 1] + \
                      genome_seq[orf_shift_coord - 2:peptide.genome_end]
+
     else:
     	sample_seq = genome_seq[peptide.genome_start - 1:peptide.genome_end] 
+    sample_seq_for_NA_comparison = sample_seq
 
     ## compare DNA and translated protein sequences 
 
@@ -189,7 +191,7 @@ def ReportSequenceMuatations(peptide, genome_seq,
     else:
         # compare DNA sequences 
         NA_mutations = CompareNAsequences(peptide,
-                                          genome_seq[peptide.genome_start - 1:peptide.genome_end])
+                                          sample_seq_for_NA_comparison)
 
     NA_mutations = ','.join(NA_mutations) if len(NA_mutations) > 0 else None
     AA_mutations = ','.join(AA_mutations) if len(AA_mutations) > 0 else None
