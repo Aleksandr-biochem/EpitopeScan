@@ -30,23 +30,36 @@ def CompareMutationData(mut_df, ref_data, ambiguity_intolerance=False):
 		if row['NA_mutations'] == 'NF':
 			if not ref_data[name]['non_functional']:
 				mismatched_samples.append(name)
-				print(f"{name} not reported as non_functional")
+				print(f"{name} reported as NF, when it is not")
+
 		elif row['NA_mutations'] == '-':
 			if not ref_data[name]['no_coverage']:
 				if ambiguity_intolerance and ref_data[name]['has_ambiguity']:
 					continue
 				else: 
 					mismatched_samples.append(name)
-					print(f"{name} not reported as no coverage")
+					print(f"{name} reported as no coverage, when it should not")
 		else:
-			if row['NA_mutations'] is np.nan:
+
+			if ref_data[name]['non_functional']:
+				mismatched_samples.append(name)
+				print(f"{name} not reported as NF")
+
+			elif ref_data[name]['no_coverage']:
+				mismatched_samples.append(name)
+				print(ref_data[name]['no_coverage'])
+				print(f"{name} not reported as no coverage")
+
+			elif row['NA_mutations'] is np.nan:
 				if not len(ref_data[name]['NA_mutations']) == 0:
 					mismatched_samples.append(name)
 					print(f"{name} has mutations when none expected")
+
 			elif row['AA_mutations'] is np.nan:
 				if not len(ref_data[name]['AA_mutations']) == 0:
 					mismatched_samples.append(name)
 					print(f"{name} has mutations when none expected")
+
 			else:
 				NA_mutations = set(row['NA_mutations'].split(','))
 				AA_mutations = set(row['AA_mutations'].split(','))
@@ -64,8 +77,8 @@ if __name__ == "__main__":
 	#### peptides to run tests on #####
 	test_peptides = [
 		('T1', 'IIRGWIFGTTLDSKTQSLLIV'),
-		# ('T2', 'VTPEANMDQES'),
-		# ('T3', 'LNRVCGVSAARLTPCGTGTST')
+		('T2', 'QSFLNRVCGVSAARL'),
+		('T3', 'LTSHTVMPLSAPTLVPQEHY')
 	]
 	###################################
 
@@ -98,14 +111,14 @@ if __name__ == "__main__":
 		# load output
 		mut_data, NA_matrix, AA_matrix = LoadOutput(f"ES_{name}")
 
+		# compare count matrices
+		NA_count_comparison = NA_matrix.compare(ref_NA_matrix)
+		AA_count_comparison = AA_matrix.compare(ref_AA_matrix)
+
 		# compare mutation matrices
 		mistmatches = CompareMutationData(mut_data, ref_data)
-		if len(mistmatches) == 0:
+		if (len(mistmatches) == 0) and NA_count_comparison.empty and AA_count_comparison.empty:
 			print("Test passed\n")
-
-		# this is the point to figure out
-		# print(NA_matrix.compare(ref_NA_matrix))
-		# print(AA_matrix.compare(ref_AA_matrix))
 
 		############
 
