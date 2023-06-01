@@ -89,8 +89,10 @@ def CompareAAsequences(peptide, sample_seq, codon_table,
     
     return AA_substitutions
 
-def ReportSequenceMuatations(peptide, genome_seq,
-                             codon_table, ambiguity_intolerance=False):
+def ReportSequenceMuatations(peptide,
+                             genome_seq,
+                             codon_table,
+                             ambiguity_intolerance=False):
     """
     Report NA and AA mutations in peptide sequence 
     against reference sequence
@@ -104,8 +106,10 @@ def ReportSequenceMuatations(peptide, genome_seq,
     list(str, str) - NA mutations and AA mutations
     """
 
+    ########################################
     # ORF1ab -1 frameshift genome coordinate
     orf_shift_coord = 13469
+    ########################################
 
     # get the coding sequence
     if (peptide.parent_protein[0] == 'Plp1ab') and \
@@ -120,71 +124,64 @@ def ReportSequenceMuatations(peptide, genome_seq,
 
     ## compare DNA and translated protein sequences 
 
-    # if sequence is deleted completely - shortcut 
-    if sample_seq.count('-') == len(sample_seq):
-        AA_mutations = [f"Δ{peptide.protein_start + i}{r}" for i, r in enumerate(peptide.sequence)]
-        peptide.AA_mutations_matrix[:, -1] += 1
+    # sequence pretreatment for left edge deletions
+    if sample_seq[0] == '-':
 
-    else:
+        # deduce how long is this deletion
+        del_end = re.search(r"^-+", sample_seq).end()
+        del_end_j = del_end % 3
 
-        # sequence pretreatment for left edge deletions
-        if sample_seq[0] == '-':
+        if del_end_j > 0:
+            
+            # find bases which will shift to there
+            pos = peptide.genome_start - 1
+            while genome_seq[pos] == '-':
+                pos -= 1
 
-            # deduce how long is this deletion
-            del_end = re.search(r"^-+", sample_seq).end()
-            del_end_j = del_end % 3
+            # get shifted bases
+            shifted_bases = genome_seq[pos - del_end_j + 1:pos + 1]
 
-            if del_end_j > 0:
-                
-                # find bases which will shift to there
-                pos = peptide.genome_start - 1
-                while genome_seq[pos] == '-':
-                    pos -= 1
+            # edit sample sequence
+            sample_seq = sample_seq[:del_end - del_end_j] + \
+                         shifted_bases + \
+                         sample_seq[del_end:]
 
-                # get shifted bases
-                shifted_bases = genome_seq[pos - del_end_j + 1:pos + 1]
+    # sequence pretreatment for right edge deletions
+    if sample_seq[-1] == '-':
 
-                # edit sample sequence
-                sample_seq = sample_seq[:del_end - del_end_j] + \
-                             shifted_bases + \
-                             sample_seq[del_end:]
+        # deduce how long is this deletion
+        del_start = re.search(r"-+$", sample_seq).start()
+        del_start_j = (len(sample_seq) - del_start) % 3
 
-        # sequence pretreatment for right edge deletions
-        if sample_seq[-1] == '-':
+        if del_start_j > 0:
+            
+            # find bases which will shift to there
+            pos = peptide.genome_end - 1
+            while genome_seq[pos] == '-':
+                pos += 1
 
-            # deduce how long is this deletion
-            del_start = re.search(r"-+$", sample_seq).start()
-            del_start_j = (len(sample_seq) - del_start) % 3
+            # get shifted bases
+            shifted_bases = genome_seq[pos:pos + del_start_j]
 
-            if del_start_j > 0:
-                
-                # find bases which will shift to there
-                pos = peptide.genome_end - 1
-                while genome_seq[pos] == '-':
-                    pos += 1
+            # edit sample sequence
+            sample_seq = sample_seq[:del_start] + \
+                         shifted_bases + \
+                         sample_seq[del_start + del_start_j:]
 
-                # get shifted bases
-                shifted_bases = genome_seq[pos:pos + del_start_j]
+    # sequence pretreatment for internal deletions
+    gaps = [match.span() for match in re.finditer(r"[A-Z]-+[A-Z]", sample_seq)]
+    for gap_start, gap_end in gaps:
+        n = 3 - ((gap_start % 3) + 1) # how many bases to move
+        sample_seq = sample_seq[:gap_start + 1] + \
+                     sample_seq[gap_end - 1:gap_end - 1 + n] + \
+                     sample_seq[gap_start + 1:gap_end - 1] + \
+                     sample_seq[gap_end - 1 + n:]
 
-                # edit sample sequence
-                sample_seq = sample_seq[:del_start] + \
-                             shifted_bases + \
-                             sample_seq[del_start + del_start_j:]
-
-        # sequence pretreatment for internal deletions
-        gaps = [match.span() for match in re.finditer(r"[A-Z]-+[A-Z]", sample_seq)]
-        for gap_start, gap_end in gaps:
-            n = 3 - ((gap_start % 3) + 1) # how many bases to move
-            sample_seq = sample_seq[:gap_start + 1] + \
-                         sample_seq[gap_end - 1:gap_end - 1 + n] + \
-                         sample_seq[gap_start + 1:gap_end - 1] + \
-                         sample_seq[gap_end - 1 + n:]
-
-        # compare sequences to report mutations
-        AA_mutations = CompareAAsequences(peptide,
-                                          sample_seq,
-                                          codon_table,
-                                          ambiguity_intolerance)
+    # compare sequences to report mutations
+    AA_mutations = CompareAAsequences(peptide,
+                                      sample_seq,
+                                      codon_table,
+                                      ambiguity_intolerance)
 
     if AA_mutations == ['-']:
         NA_mutations = ['-']
@@ -202,7 +199,7 @@ def ExpandMutationData(dfs):
     """
     Transform AA mutation column in DataFrame One-Hot Encoding style
 
-    dfs - list(pd DataFrame), list of dataFrames to expand
+    dfs - list(pd DataFrame), list of DataFrames to expand
 
     Returns:
     list(pd DataFrame) - list of expanded DataFrames
@@ -239,18 +236,33 @@ def ExpandMutationData(dfs):
     return dfs
 
 def BindMetadata(dfs, metadata_file, sample_tag):
+    """
+    Bind mutation DataFrames to metadata
+
+    dfs - list(pd DataFrame), list of DataFrames to expand
+    metadata_file - str, path to metadata csv file
+    sample_tag - str, sample tag to subset
+
+    Returns:
+    list(pd DataFrame), list of DataFrames with new metadata columns
+    """
 	
+    # compile regex pattern from tag to filter samples if any
+    sample_tag = re.compile(args.tag) if args.tag else None
+
 	if not metadata_file is None:
-			print(f"Binding output to metadata from {metadata_file}")
+			print(f"Merging output with metadata from {metadata_file}...")
 
 			# read metadata
 			metadata = pd.read_csv(metadata_file, low_memory=False)
 			metadata = metadata[['sequence_name', 'adm1',
 								 'sample_date', 'epi_week',
 								 'usher_lineage']]
+
 			# filter samples by tag if any
 			if not sample_tag is None:
 				metadata = metadata[metadata['sequence_name'].str.contains(sample_tag)]
+
 			# bind each output df to data
 			for i in range(len(dfs)):
 			    dfs[i] = dfs[i].merge(metadata, how='left', on='sequence_name')
@@ -270,7 +282,8 @@ def BindMetadata(dfs, metadata_file, sample_tag):
 			no_metadata = sum(dfs[0]['has_metadata'] == 0)
 			print(f"{no_metadata} samples ({round(no_metadata*100/dfs[0].shape[0], 1)}%) lack metadata\n")
 
-	else: # create dummy columns of Nans
+	else:
+    # if no metadata given - create dummy columns of Nans
 		for i in range(len(dfs)):
 			dfs[i]['has_metadata'] = 0
 			for col in ['sample_date', 'epi_week', 'usher_lineage']:
@@ -280,14 +293,14 @@ def BindMetadata(dfs, metadata_file, sample_tag):
 
 def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
     """
-    Check if the ORF in sample sequence is disrupted
+    Check if the ORF in sample genome is disrupted
     
     orf_start - int, ORF start coordinate in genome
     orf_end - int, ORF end coordinate in genome
     genome_sequence - str, sample genome sequence
 
     Returns:
-    frame_disrupted - bool, True is frame is disrupted
+    bool, True if frame is disrupted
     """
 
     # get ORF sequence
@@ -317,15 +330,18 @@ def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
 
     return frame_disrupted
 
-def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None,
-            verbose=True, quality_filter=None,
+def ScanMSA(epitopes_to_scan,
+            msa_file,
+            sample_tag=None,
+            verbose=True,
+            quality_filter=None,
             ambiguity_intolerance=False):
     """
     Scan genome MSA to report mutations within peptides
 
     epitopes_to_scan - list(Protein instances), peptides to analyse
-    msa_file - string, path to MSA file
-    sample_tag - compiled regex, sample tag to subset
+    msa_file - str, path to MSA file
+    sample_tag - str, sample tag to subset
     varbose - bool, print key statistics at the end, default False
     quality_filter - float, max N base proportion to tolerate
     ambiguity_intolerance - bool, treat any ambiguous bases as no coverage
@@ -343,7 +359,7 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None,
         epitope.AA_mutations_matrix = np.zeros((len(epitope.sequence), 22), dtype=int)
         epitope.NA_mutations_matrix = np.zeros((len(epitope.coding_sequence), 5), dtype=int)
 
-    # read ORF coordinates for ORF control
+    # read ORF coordinates for ORF disruption control
     cur_dir = os.path.realpath(os.path.dirname(__file__))
     ORF_coordinates = dict()
     with open(f'{cur_dir}/../reference_sequences/ORFs_reference.txt', 'r') as f:
@@ -371,10 +387,13 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None,
         'TGC':'C', 'TGT':'C', 'TGA':'*', 'TGG':'W'
     }
 
+    # compile regex pattern from tag to filter samples if any
+    sample_tag = re.compile(args.tag) if args.tag else None
     # define if samples have to be filtered by tag
     filter_samples = True if (not sample_tag is None) else False
     
-    # parse MSA file and analyse each sequence
+    ## parse MSA file and analyse each sequence
+
     df = [] # list to append extracted mutatiuon data
     with open(msa_file, 'r') as f:
 
@@ -382,19 +401,19 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None,
         time_checkpoint = time.time()
 
         for line in f:
-
+            # sample name line
             if line.startswith('>'):
 
                 total_samples += 1 # count total parsed samples
                 sample_name = line.strip()[1:] # get sample name
-                new_row = [sample_name]
+                new_row = [sample_name] # initiate new row in mutation data
 
-                # check presense of filtering tag if necessary 
+                # check presense of filtering tag if necessary
+                skip_sample = False
                 if filter_samples:
                     skip_sample = False if sample_tag.search(sample_name) else True
-                else:
-                    skip_sample = False
-
+                    
+            # sample genome line
             else:
                 
                 if not skip_sample:
@@ -427,8 +446,7 @@ def ScanMSA(epitopes_to_scan, msa_file, sample_tag=None,
 
                         # for non-disrupted translation
                         else:
-
-                            # report epitope mutations against reference sequence
+                            # report NA and AA mutations against reference sequence
                             new_row.append(ReportSequenceMuatations(epitope,
                                                                     genome_aln,
                                                                     codon_table,

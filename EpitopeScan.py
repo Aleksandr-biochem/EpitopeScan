@@ -16,23 +16,23 @@ if __name__ == "__main__":
 
 	import argparse
 
-	parser = argparse.ArgumentParser(description="EpitopeScan. Scan and analyse mutations within SARS-CoV-2 peptides from Multiple Sequence Alignment")
+	parser = argparse.ArgumentParser(description="EpitopeScan. Scan and analyse SARS-CoV-2 genome Multiple Sequence Alignment for mutations within peptides")
 
 	# create subparsers for two operation modes
 	subparsers = parser.add_subparsers(title='Mode', dest='mode')
 	
 	# define scan mode key options
-	parser_scan = subparsers.add_parser('scan', help='Scan MSA file for peptide mutations')
-	parser_scan.add_argument("-e", "--epitope", help="Input peptide epitope name and sequence, comma separated. E.x. S1,VGYWA", type=str)
+	parser_scan = subparsers.add_parser('scan', help='Scan genome MSA file for peptide mutations')
+	parser_scan.add_argument("-e", "--epitope", help="Input peptide epitope name and sequence, comma-separated. E.x. S1,VGYWA", type=str)
 	parser_scan.add_argument("-f", "--file",    help="Or path to fasta file with multiple input peptides", type=str)
 	parser_scan.add_argument("--msa", 			help="Path to input MSA fasta file", type=str, required=True)
-	parser_scan.add_argument("--metadata",    	help="Metadata .csv file to bind with mutaion data", type=str)
+	parser_scan.add_argument("--metadata",    	help="PAth to metadata csv file to merge with mutaion data", type=str)
 	
 	# scan mode additional options
 	parser_scan.add_argument("-o", "--out",     help="Output directory name", type=str)
 	parser_scan.add_argument("-t", "--tag",     help="Sample tag to filter", type=str)
-	parser_scan.add_argument("-q", "--quality_filter", help="Threshold of max N bases proportion in genome. Recommended 0.05", type=float)
-	parser_scan.add_argument("-n", "--no_ambiguity",   help="Treat any presence ambiguous bases in peptide region as insufficient coverage", action='store_true')
+	parser_scan.add_argument("-q", "--quality_filter", help="Max threshold of N bases proportion in genome. Recommended 0.05", type=float)
+	parser_scan.add_argument("-n", "--no_ambiguity",   help="Treat presence of any ambiguous bases in peptide region as insufficient coverage", action='store_true')
 	parser_scan.add_argument("-b", "--blosum",  help="BLOSUM version for mutation scoring. Default 90", type=int, default=90)
 	parser_scan.add_argument("-s", "--sort",    help="Sort mutations summary by count(0) or score(1). Default 0", type=int, choices=[0, 1], default=0)
 	parser_scan.add_argument("-a", "--stat",    help="Stat individual mutations(0) or combinations(1). Default 0", type=int, choices=[0, 1], default=0)
@@ -40,19 +40,18 @@ if __name__ == "__main__":
 
 
 	# define stat mode options
-	parser_stat = subparsers.add_parser('stat', help='Read existing output directory and print stats')	
+	parser_stat = subparsers.add_parser('stat', help='Read preexisting output and print mutation stats')	
 	parser_stat.add_argument("-i", "--input",   help="Direcory with scan output", type=str, required=True)
 	parser_stat.add_argument("-b", "--blosum",  help="BLOSUM version for mutation scoring. Default 90", type=int, default=90)
 	parser_stat.add_argument("-s", "--sort",    help="Sort mutations summary by count(0) or score(1). Default 0", type=int, choices=[0, 1], default=0)
 	parser_stat.add_argument("-a", "--stat",    help="Stat individual mutations(0) or combinations(1). Default 0", type=int, choices=[0, 1], default=0)
 	parser_stat.add_argument("--stat_with_metadata", help="Only stat samples with metadata", action='store_true')
-	parser_stat.add_argument("--start_date",    help="Subset after this date, dd/mm/yyyy", type=str)
-	parser_stat.add_argument("--end_date",      help="Subset before this date, dd/mm/yyyy", type=str)
+	parser_stat.add_argument("--start_date",    help="Stat samples after this date, dd/mm/yyyy", type=str)
+	parser_stat.add_argument("--end_date",      help="Stat samples before this date, dd/mm/yyyy", type=str)
 
 	args = parser.parse_args()
 
 	## load reference genome 
-	# locate EpitopeSccan on the system
 	script_dir = os.path.realpath(os.path.dirname(__file__))
 	with open(f'{script_dir}/reference_sequences/EPI_ISL_402124.fasta', 'r') as f:
 		lines = f.readlines()
@@ -65,7 +64,8 @@ if __name__ == "__main__":
 	## operation in scan mode
 	if args.mode == 'scan':
 
-		# check peptide inputs
+		## check peptide inputs
+
 		# single input peptide
 		if not args.epitope is None:
 			name, seq = args.epitope.split(',')
@@ -82,6 +82,7 @@ if __name__ == "__main__":
 			else:
 				raise Exception("Could not recognise any peptides from input file")
 
+		# if no input epitopes provided
 		else:
 			raise Exception("No epitopes provided")
 
@@ -90,11 +91,8 @@ if __name__ == "__main__":
 									 	proteome,
 									  	reference_genome)
 
-		# compile tag regex pattern if any to filter samples
-		sample_tag = re.compile(args.tag) if args.tag else None
-
 		# scan MSA data
-		print("Scanning MSA data for peptide mutations...")
+		print("Scanning MSA data for mutations...")
 		start_time = time.time()
 		output_data = ScanMSA(epitopes_to_scan = epitopes_to_scan,
 							  msa_file = args.msa,
@@ -118,7 +116,8 @@ if __name__ == "__main__":
 										  sort_by=args.sort,
 										  blosum_version=args.blosum)
 			print(f"{summary.shape[0]} mutations for {epitope.name}")
-			print(summary.to_string())
+			if summary.shape[0] > 0:
+				print(summary.to_string())
 			print()
 
 		## create output directories and save files
@@ -151,18 +150,18 @@ if __name__ == "__main__":
 					              columns=list('ATCGΔ'))
 			matrix.to_csv(f"{epitope.name}_NA_mutation_matrix.csv")
 			
-			# save output dataframes
+			# save output mutation data
 			data.to_csv(f"{epitope.name}_mutation_data.tsv", sep='\t')
 
 			if len(epitopes_to_scan) > 1:
 				os.chdir("../")
 
-		print(f"Saved outputs in {output_dir}")
+		print(f"Saved outputs to {output_dir}")
 
 	## operation in stat mode
 	elif args.mode == 'stat':
 
-		print(f"Collecting the data from {args.input}...\n")
+		print(f"Collecting mutation data from {args.input}...\n")
 
 		start_date = datetime.strptime(args.start_date, '%d/%m/%Y') if not args.start_date is None else None
 		end_date   = datetime.strptime(args.end_date, '%d/%m/%Y') if not args.end_date is None else None

@@ -10,8 +10,8 @@ class Protein:
     parent_protein - list(str), names of parent proteins
     coding_sequence - str, coding DNA sequence 
     protein_start - int, start coordinate in a primary parent protein
-    AA_mutations_matrix - np array, AA substitutions counts
-    NA_mutations_matrix - np array, NA substitutions counts
+    AA_mutations_matrix - np array, AA substitutions and deletions counts
+    NA_mutations_matrix - np array, NA substitutions and deletions counts
     """
     
     def __init__(self,
@@ -45,14 +45,16 @@ class Protein:
     
     def LocateSubsequence(self, proteins, verbose=False):
         """
-        Locate peptide among list of proteins
-        Assign genome coordinate accordingly
+        Locate peptide among the list of proteins
+        Assign genome coordinates accordingly
 
         proteins - list(Protein instances), proteins to scan
         """
-        
-        # 1st Plp1ab resisue produced by shift
-        prot_shift_coord = 4402 # 4314
+
+        ###############################################
+        # 1st Plp1ab resisue produced after frame shift
+        prot_shift_coord = 4402
+        ###############################################
 
         for protein in proteins:
                 
@@ -64,6 +66,7 @@ class Protein:
 
                 if sebsequence == self.sequence:
 
+                    # calculate genome coordinates for the peptide
                     genome_start_coordinate = protein.genome_start + (i * 3)
                     genome_end_coordinate = genome_start_coordinate + (len(self) * 3) - 1
 
@@ -88,6 +91,8 @@ class Protein:
                         # in case of same genome coordinate for overlapping ORFs
                         if self.genome_start == genome_start_coordinate:
                             self.parent_protein.append(protein.name)
+
+                        # NSP12 location is an additional ambiguous case
                         elif protein.name != 'NSP12':
                             # in case of ambiguous location
                             self.genome_start = -1
@@ -102,13 +107,15 @@ class Protein:
 
     def AssignCodingSequence(self, reference_genome):
         """
-        Assign coding DNA sequence based on start and end coordinates
+        Assign reference coding DNA sequence based on start and end coordinates
 
         reference_genome - str, reference genome sequence
         """
 
-        # ORF1ab -1 frameshift genome coordinate
+        ########################################
+        # genome coordinate of ORF1ab -1 frameshift
         orf_shift_coord = 13469
+        ########################################
 
         if (not self.genome_start is None) and (not self.genome_start == -1):
             # account for -1 shift in ORF1ab is enciuntered
@@ -121,11 +128,12 @@ class Protein:
                 self.coding_sequence = reference_genome[self.genome_start - 1:self.genome_end]
         else:
             peint(f"Warning! Cannot assign coding sequence to {self.name} due to indefinite coordinates")
-        return
+        
+        return self
 
 def ReadProteinsFromFile(file):
     """
-    Read protein sequences from fasta file
+    Read proteins from fasta file
 
     file - str, path to fasta file
 
@@ -158,16 +166,17 @@ def ReadProteinsFromFile(file):
 
 def MapPeptides(peptides, proteome, ref_genome, verbose=True):
     """
-    Map peptides onto the proteome and assign coding sequences
+    Map peptides onto reference proteome and assign coding sequences
 
-    peptides - list of Protein instances, peptides to map
-    proteome - list of Protein instances, reference protein to map onto
+    peptides - list(Protein instances), peptides to map
+    proteome - list(Protein instances), reference proteins to map onto
     ref_genome - str, reference genome sequence
     verbose - bool, print mapping statistics, default True
 
     Returns:
-    mapped_epitopes, list of unambiguously mapped Protein instances
+    list(Protein instances), list of unambiguously mapped Protein instances
     """
+    
     couldnt_map, mapped_ambiguously = 0, 0
     mapped_peptides = [] # list to append mapped peptides
 
