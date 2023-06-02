@@ -107,25 +107,14 @@ class Protein:
 
     def AssignCodingSequence(self, reference_genome):
         """
-        Assign reference coding DNA sequence based on start and end coordinates
+        Assign reference coding DNA sequence
+        based on genome start and end coordinates
 
         reference_genome - str, reference genome sequence
         """
 
-        ########################################
-        # genome coordinate of ORF1ab -1 frameshift
-        orf_shift_coord = 13469
-        ########################################
-
         if (not self.genome_start is None) and (not self.genome_start == -1):
-            # account for -1 shift in ORF1ab is enciuntered
-            if (self.genome_start < orf_shift_coord - 1) and \
-               (orf_shift_coord < self.genome_end) :
-               self.coding_sequence = reference_genome[self.genome_start - 1:orf_shift_coord - 1] + \
-                                      reference_genome[orf_shift_coord - 2:self.genome_end]
-            # in case of no shift
-            else:
-                self.coding_sequence = reference_genome[self.genome_start - 1:self.genome_end]
+            self.coding_sequence = reference_genome[self.genome_start - 1:self.genome_end]
         else:
             peint(f"Warning! Cannot assign coding sequence to {self.name} due to indefinite coordinates")
         
@@ -176,7 +165,7 @@ def MapPeptides(peptides, proteome, ref_genome, verbose=True):
     Returns:
     list(Protein instances), list of unambiguously mapped Protein instances
     """
-    
+
     couldnt_map, mapped_ambiguously = 0, 0
     mapped_peptides = [] # list to append mapped peptides
 

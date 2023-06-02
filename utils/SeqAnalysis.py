@@ -5,6 +5,110 @@ import numpy as np
 import blosum as bl
 import pandas as pd
 
+def translate(seq, codon_table):
+    """
+    Translate DNA sequence into amino acid sequence
+    indicating deletions and ambiguous residues
+
+    seq - str, DNA sequence of length 3n
+    codon_table - dict, DNA codon table
+
+    Returns:
+    str - translated protein sequence
+    """
+
+    protein = ''
+    for i in range(0, len(seq), 3):
+        codon = seq[i:i + 3]
+        if codon == '---':
+            protein += '-'
+        elif codon not in codon_table.keys():
+            protein += 'X'
+        else:
+            protein += codon_table[codon]
+
+    return protein
+
+def GlobalPtoteinAlignment(seq1, seq2, blosum_version=90, gap_penalty=-2.0):
+    """
+    Needleman–Wunsch algorithm alignment of 2 protein sequences 
+    with BLOSUM scoring matrix
+    Implemetation based on:
+    https://python.plainenglish.io/global-sequence-alignment-implementation-in-python-from-scratch-5a8a611dbb1e
+    
+    seq1 - str, 1st protein sequence
+    seq2 - str, 2nd protein sequence
+    blosum_version - int, BLOSUM version for scoring
+    gap_penalty - float, gap penalty for alignment
+    
+    Returns:
+    (seq1_aligned, seq1_aligned) - (str, str) aligned protein sequences
+    """
+    BLOSUM_matrix = bl.BLOSUM(blosum_version)
+    
+    # create intial matrix
+    scoring_matrix = np.zeros((len(seq1)+1, len(seq2)+1))
+    # initialise first column and first row
+    for i in range(1, len(seq1)+1):
+        scoring_matrix[i][0] = scoring_matrix[0][0] + (i * gap_penalty)
+    for i in range(1, len(seq2)+1):
+        scoring_matrix[0][i] = scoring_matrix[0][0] + (i * gap_penalty)
+        
+    # initialise trace-back matrix
+    trace_back_matrix = np.zeros((len(seq1)+1, len(seq2)+1), dtype=str)
+    for i in range(1, len(seq1)+1):
+        trace_back_matrix[i][0] = 'u'
+    for i in range(1, len(seq2)+1):
+        trace_back_matrix[0][i] = 'l'
+        
+    # fill the score and trace-back matrices
+    for i in range(1, len(seq1)+1): # rows
+        for j in range(1, len(seq2)+1): # columns
+            
+            # define score for each transition
+            left = scoring_matrix[i][j - 1] + gap_penalty
+            up   = scoring_matrix[i - 1][j] + gap_penalty
+            if seq2[j-1] == 'X':
+                score = BLOSUM_matrix[f"{seq1[i-1]}"][f"{seq1[i-1]}"]
+            else:
+                score = BLOSUM_matrix[f"{seq1[i-1]}"][f"{seq2[j-1]}"]
+            diag = scoring_matrix[i - 1][j - 1] + score
+            
+            # define the maximum score
+            scoring_matrix[i][j] = max(left, up, diag)
+            
+            # fill traceback
+            if scoring_matrix[i][j] == left:
+                trace_back_matrix[i][j] = 'l'
+            elif scoring_matrix[i][j] == up:
+                trace_back_matrix[i][j] = 'u'
+            else:
+                trace_back_matrix[i][j] = 'd'
+    
+    # get trace back to produce alignment
+    seq1_aligned, seq2_aligned = [], []
+    i, j = len(seq1), len(seq2)
+    while (i > 0 or j > 0):
+        if trace_back_matrix[i][j] == 'd':
+            seq1_aligned.append(seq1[i-1])
+            seq2_aligned.append(seq2[j-1])
+            i -= 1
+            j -= 1
+        elif trace_back_matrix[i][j] == 'l':
+            seq1_aligned.append('-')
+            seq2_aligned.append(seq2[j-1])
+            j -= 1
+        elif trace_back_matrix[i][j] == 'u':
+            seq1_aligned.append(seq1[i-1])
+            seq2_aligned.append('-')
+            i -= 1
+        elif trace_back_matrix[i][j] == '':
+            break
+            
+    seq1_aligned = ''.join(seq1_aligned[::-1])
+    seq2_aligned = ''.join(seq2_aligned[::-1])
+    
+    return seq1_aligned, seq2_aligned
 
 def CompareNAsequences(peptide, sample_seq):
     """
@@ -37,8 +141,12 @@ def CompareNAsequences(peptide, sample_seq):
 
     return NA_substitutions
 
-def CompareAAsequences(peptide, sample_seq, codon_table,
-                       ambiguity_intolerance=False):
+def CompareAAsequences(peptide,
+                       sample_seq,
+                       codon_table,
+                       ambiguity_intolerance,
+                       partially_spanning_deletions_found,
+                       add_seq_left, add_seq_right):
     """
     Compare sequences to find AA substitutions
     
@@ -50,47 +158,74 @@ def CompareAAsequences(peptide, sample_seq, codon_table,
     Returns:
     list(str) AA substitutions and deletions
     """
+    # list of AA mutations
     AA_substitutions = []
-    ambiguous_codons = 0 # report ambiguous codons
 
-    # scan DNA codons
-    for i in range(0, len(sample_seq), 3):
+    refrnc_seq = peptide.coding_sequence
+    # expand reference coding sequence for frame shift
+    # genome coordinate of ORF1ab -1 frameshift is 13469
+    if (peptide.genome_start < 13469 - 1) and (13469 < peptide.genome_end):
+        refrnc_seq = refrnc_seq[:13469 - peptide.genome_start] + \
+                     refrnc_seq[(13469 - peptide.genome_start) - 1:]
 
-        ref_codon, codon = peptide.coding_sequence[i:i+3], sample_seq[i:i+3]
+    # for partially spanning deletions
+    if partially_spanning_deletions_found:
 
-        # deleted codon
-        if codon == '---':
-            coordinate = peptide.protein_start + (i // 3)
-            AA_substitutions.append(f'Δ{coordinate}{codon_table[ref_codon]}')
-            peptide.AA_mutations_matrix[i // 3, -1] += 1
+        # expand edges if any
+        refrnc_seq = add_seq_left + refrnc_seq + add_seq_right
 
-        else:
+        # translate without deletions
+        sample_protein = translate(sample_seq.replace('-', ''), codon_table)
+        refrnc_protein = translate(refrnc_seq, codon_table)
 
-            # report if ambiguous codon is encountered
-            if codon not in codon_table.keys():
-                ambiguous_codons += 1
+        # call global alignent 
+        refrnc_protein, sample_protein = GlobalPtoteinAlignment(refrnc_protein, sample_protein)
+
+        # cut aligned sequences if needed
+        sample_protein = sample_protein[len(add_seq_left)//3:]
+        refrnc_protein = refrnc_protein[len(add_seq_left)//3:]
+        if len(add_seq_right) > 0:
+            sample_protein = sample_protein[:-(len(add_seq_right)//3)]
+            refrnc_protein = refrnc_protein[:-(len(add_seq_right)//3)]
+    else:
+        sample_protein = translate(sample_seq, codon_table)
+        refrnc_protein = translate(refrnc_seq, codon_table)
+
+    # check presence of ambiguous residues
+    ambiguous_residues = sample_protein.count('X')
+    if ambiguity_intolerance and ambiguous_residues > 0:
+        AA_substitutions = ['-']
+    
+    # if too many amb. codons - do not trust
+    elif ambiguous_residues > (len(sample_protein) // 3):
+        AA_substitutions = ['-'] 
+
+    else:
+        # compare residue by residue
+        for i, (ref_res, sample_res) in enumerate(zip(refrnc_protein, sample_protein)):
+
+            # deletion
+            if sample_res == '-':
+                coordinate = peptide.protein_start + i
+                AA_substitutions.append(f'Δ{coordinate}{ref_res}')
+                peptide.AA_mutations_matrix[i, -1] += 1
+
             else:
 
                 # for unambiguous codons report residue change if any
-                if codon_table[ref_codon] != codon_table[codon]:
-                    coordinate = peptide.protein_start + (i // 3)
-                    AA_substitutions.append(f"{codon_table[ref_codon]}{coordinate}{codon_table[codon]}")
+                if (sample_res != 'X') and (ref_res != sample_res):
+                    coordinate = peptide.protein_start + i
+                    AA_substitutions.append(f"{ref_res}{coordinate}{sample_res}")
 
                 # count residue
-                ind_AA = 'GALMFWKQESPVICYHRNDT*'.find(codon_table[codon])
-                peptide.AA_mutations_matrix[i // 3, ind_AA] += 1
-
-    # in case of ambiguity intolerance
-    if ambiguity_intolerance and ambiguous_codons > 0:
-        AA_substitutions = ['-']
-    # if too many amb. codons - do not trust
-    elif ambiguous_codons > (len(peptide.sequence) // 3):
-        AA_substitutions = ['-'] 
+                ind_AA = 'GALMFWKQESPVICYHRNDT*'.find(sample_res)
+                peptide.AA_mutations_matrix[i, ind_AA] += 1
     
     return AA_substitutions
 
 def ReportSequenceMuatations(peptide,
                              genome_seq,
+                             reference_genome,
                              codon_table,
                              ambiguity_intolerance=False):
     """
@@ -99,6 +234,7 @@ def ReportSequenceMuatations(peptide,
 
     peptide - Protein instance, peptide for comparison
     genome_seq - str, aligned sample genome sequence
+    reference_genome - str, reference viral genome
     codon_table - dict, DNA codon table
     ambiguity_intolerance - bool, treat any ambiguous bases as no coverage
 
@@ -111,78 +247,88 @@ def ReportSequenceMuatations(peptide,
     orf_shift_coord = 13469
     ########################################
 
-    # get the coding sequence
+    # get the coding sequence for NA comparison
+    sample_seq_for_NA_comparison = genome_seq[peptide.genome_start - 1:peptide.genome_end]
+
+    # get the coding sequence for AA comparison
+    # in case of frame shift extend for AA comparison
     if (peptide.parent_protein[0] == 'Plp1ab') and \
        ((peptide.genome_start < orf_shift_coord) and \
        (orf_shift_coord < peptide.genome_end)):
-        sample_seq = genome_seq[peptide.genome_start - 1:orf_shift_coord - 1] + \
-                     genome_seq[orf_shift_coord - 2:peptide.genome_end]
-
+        sample_seq_for_AA_comparison = genome_seq[peptide.genome_start - 1:orf_shift_coord - 1] + \
+                                       genome_seq[orf_shift_coord - 2:peptide.genome_end]
     else:
-    	sample_seq = genome_seq[peptide.genome_start - 1:peptide.genome_end] 
-    sample_seq_for_NA_comparison = sample_seq
+    	sample_seq_for_AA_comparison = genome_seq[peptide.genome_start - 1:peptide.genome_end] 
 
-    ## compare DNA and translated protein sequences 
+    # check for partially spanning deletions
+    partially_spanning_deletions_found = False
+    for i in range(0, len(sample_seq_for_AA_comparison), 3):
+        if sample_seq_for_AA_comparison[i:i + 3].count('-') in [1, 2]:
+            partially_spanning_deletions_found = True
+            break
 
-    # sequence pretreatment for left edge deletions
-    if sample_seq[0] == '-':
+    # in case partially spanning deletions found
+    # check if these deletions are at sequece edges
+    add_seq_left, add_seq_right = '', ''
+    if partially_spanning_deletions_found:
 
-        # deduce how long is this deletion
-        del_end = re.search(r"^-+", sample_seq).end()
-        del_end_j = del_end % 3
+        # sequence pretreatment for left edge spanning deletions
+        add_left = 0 # n codons to be added on left
+        if sample_seq_for_AA_comparison[0] == '-':
 
-        if del_end_j > 0:
-            
-            # find bases which will shift to there
-            pos = peptide.genome_start - 1
-            while genome_seq[pos] == '-':
-                pos -= 1
+            # deduce how long is this deletion
+            del_end = re.search(r"^-+", sample_seq_for_AA_comparison).end()
+            del_end_j = del_end % 3
 
-            # get shifted bases
-            shifted_bases = genome_seq[pos - del_end_j + 1:pos + 1]
+            if del_end_j > 0:
+                
+                # find bases which will shift to there
+                pos = peptide.genome_start - 1
+                add_left = 1
+                while genome_seq[pos - 3:pos] == '---':
+                    add_left += 1
+                    pos -= 3
 
-            # edit sample sequence
-            sample_seq = sample_seq[:del_end - del_end_j] + \
-                         shifted_bases + \
-                         sample_seq[del_end:]
+                # edit sequence for AA comparison
+                sample_seq_for_AA_comparison = genome_seq[pos - 3:pos + (3 * (add_left - 1))] + \
+                                               sample_seq_for_AA_comparison
 
-    # sequence pretreatment for right edge deletions
-    if sample_seq[-1] == '-':
+                # define left flank to ref sequence
+                add_seq_left = reference_genome[pos - 3:pos + (3 * (add_left - 1))]
 
-        # deduce how long is this deletion
-        del_start = re.search(r"-+$", sample_seq).start()
-        del_start_j = (len(sample_seq) - del_start) % 3
+        # sequence pretreatment for right edge deletions
+        add_right = 0 # n codons to be added on the right
+        if sample_seq_for_AA_comparison[-1] == '-':
 
-        if del_start_j > 0:
-            
-            # find bases which will shift to there
-            pos = peptide.genome_end - 1
-            while genome_seq[pos] == '-':
-                pos += 1
+            # deduce how long is this deletion
+            del_start = re.search(r"-+$", sample_seq_for_AA_comparison).start()
+            del_start_j = (len(sample_seq_for_AA_comparison) - del_start) % 3
 
-            # get shifted bases
-            shifted_bases = genome_seq[pos:pos + del_start_j]
+            if del_start_j > 0:
+                
+                # find bases which will shift to there
+                pos = peptide.genome_end
+                add_right = 1
+                while genome_seq[pos:pos + 3] == '---':
+                    add_right += 1
+                    pos += 3
 
-            # edit sample sequence
-            sample_seq = sample_seq[:del_start] + \
-                         shifted_bases + \
-                         sample_seq[del_start + del_start_j:]
+                # edit sequence for AA comparison
+                sample_seq_for_AA_comparison = sample_seq_for_AA_comparison + \
+                                               genome_seq[pos - (3 * (add_right - 1)):pos + 3]
 
-    # sequence pretreatment for internal deletions
-    gaps = [match.span() for match in re.finditer(r"[A-Z]-+[A-Z]", sample_seq)]
-    for gap_start, gap_end in gaps:
-        n = 3 - ((gap_start % 3) + 1) # how many bases to move
-        sample_seq = sample_seq[:gap_start + 1] + \
-                     sample_seq[gap_end - 1:gap_end - 1 + n] + \
-                     sample_seq[gap_start + 1:gap_end - 1] + \
-                     sample_seq[gap_end - 1 + n:]
+                # define right flank to ref sequence
+                add_seq_right = reference_genome[pos - (3 * (add_right - 1)):pos + 3]
 
-    # compare sequences to report mutations
+    # compare sequences to report AA mutations
     AA_mutations = CompareAAsequences(peptide,
-                                      sample_seq,
+                                      sample_seq_for_AA_comparison,
                                       codon_table,
-                                      ambiguity_intolerance)
+                                      ambiguity_intolerance,
+                                      partially_spanning_deletions_found,
+                                      add_seq_left, add_seq_right)
 
+    # if insufficient coverage
     if AA_mutations == ['-']:
         NA_mutations = ['-']
     else:
@@ -248,48 +394,48 @@ def BindMetadata(dfs, metadata_file, sample_tag):
     """
 	
     # compile regex pattern from tag to filter samples if any
-    sample_tag = re.compile(args.tag) if args.tag else None
+    sample_tag = re.compile(sample_tag) if sample_tag else None
 
-	if not metadata_file is None:
-			print(f"Merging output with metadata from {metadata_file}...")
+    if not metadata_file is None:
+        print(f"Merging output with metadata from {metadata_file}...")
 
-			# read metadata
-			metadata = pd.read_csv(metadata_file, low_memory=False)
-			metadata = metadata[['sequence_name', 'adm1',
-								 'sample_date', 'epi_week',
-								 'usher_lineage']]
+        # read metadata
+        metadata = pd.read_csv(metadata_file, low_memory=False)
+        metadata = metadata[['sequence_name', 'adm1',
+        					 'sample_date', 'epi_week',
+        					 'usher_lineage']]
 
-			# filter samples by tag if any
-			if not sample_tag is None:
-				metadata = metadata[metadata['sequence_name'].str.contains(sample_tag)]
+        # filter samples by tag if any
+        if not sample_tag is None:
+        	metadata = metadata[metadata['sequence_name'].str.contains(sample_tag)]
 
-			# bind each output df to data
-			for i in range(len(dfs)):
-			    dfs[i] = dfs[i].merge(metadata, how='left', on='sequence_name')
-			    
-			    # transform adm1 column into feature indicating presence of metadata
-			    dfs[i].rename(columns={'adm1':'has_metadata'}, inplace=True)
-			    dfs[i]['has_metadata'] = dfs[i]['has_metadata'].fillna(0)
-			    dfs[i]['has_metadata'] = dfs[i]['has_metadata'] \
-			    								 .where(dfs[i]['has_metadata'] == 0, 1)
-			    
-			    # transfrom sample_date to datime format
-			    dfs[i]['sample_date']= pd.to_datetime(dfs[i]['sample_date'],
-			    											  format='%Y-%m-%d')
+        # bind each output df to data
+        for i in range(len(dfs)):
+            dfs[i] = dfs[i].merge(metadata, how='left', on='sequence_name')
+            
+            # transform adm1 column into feature indicating presence of metadata
+            dfs[i].rename(columns={'adm1':'has_metadata'}, inplace=True)
+            dfs[i]['has_metadata'] = dfs[i]['has_metadata'].fillna(0)
+            dfs[i]['has_metadata'] = dfs[i]['has_metadata'] \
+            								 .where(dfs[i]['has_metadata'] == 0, 1)
+            
+            # transfrom sample_date to datime format
+            dfs[i]['sample_date']= pd.to_datetime(dfs[i]['sample_date'],
+            											  format='%Y-%m-%d')
 
-			print(f"Metadata binding finished")
-			print(f"Metadata found for {sum(dfs[0]['has_metadata'] == 1)}")
-			no_metadata = sum(dfs[0]['has_metadata'] == 0)
-			print(f"{no_metadata} samples ({round(no_metadata*100/dfs[0].shape[0], 1)}%) lack metadata\n")
+        print(f"Metadata binding finished")
+        print(f"Metadata found for {sum(dfs[0]['has_metadata'] == 1)}")
+        no_metadata = sum(dfs[0]['has_metadata'] == 0)
+        print(f"{no_metadata} samples ({round(no_metadata*100/dfs[0].shape[0], 1)}%) lack metadata\n")
 
-	else:
+    else:
     # if no metadata given - create dummy columns of Nans
-		for i in range(len(dfs)):
-			dfs[i]['has_metadata'] = 0
-			for col in ['sample_date', 'epi_week', 'usher_lineage']:
-				dfs[i][col] = np.nan	
+    	for i in range(len(dfs)):
+    		dfs[i]['has_metadata'] = 0
+    		for col in ['sample_date', 'epi_week', 'usher_lineage']:
+    			dfs[i][col] = np.nan	
 
-	return dfs
+    return dfs
 
 def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
     """
@@ -332,6 +478,7 @@ def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
 
 def ScanMSA(epitopes_to_scan,
             msa_file,
+            reference_genome,
             sample_tag=None,
             verbose=True,
             quality_filter=None,
@@ -341,6 +488,7 @@ def ScanMSA(epitopes_to_scan,
 
     epitopes_to_scan - list(Protein instances), peptides to analyse
     msa_file - str, path to MSA file
+    reference_genome - str, reference viral genome
     sample_tag - str, sample tag to subset
     varbose - bool, print key statistics at the end, default False
     quality_filter - float, max N base proportion to tolerate
@@ -388,7 +536,7 @@ def ScanMSA(epitopes_to_scan,
     }
 
     # compile regex pattern from tag to filter samples if any
-    sample_tag = re.compile(args.tag) if args.tag else None
+    sample_tag = re.compile(sample_tag) if sample_tag else None
     # define if samples have to be filtered by tag
     filter_samples = True if (not sample_tag is None) else False
     
@@ -449,6 +597,7 @@ def ScanMSA(epitopes_to_scan,
                             # report NA and AA mutations against reference sequence
                             new_row.append(ReportSequenceMuatations(epitope,
                                                                     genome_aln,
+                                                                    reference_genome,
                                                                     codon_table,
                                                                     ambiguity_intolerance))
 

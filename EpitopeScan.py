@@ -96,13 +96,14 @@ if __name__ == "__main__":
 		start_time = time.time()
 		output_data = ScanMSA(epitopes_to_scan = epitopes_to_scan,
 							  msa_file = args.msa,
-							  sample_tag = sample_tag,
+							  reference_genome = reference_genome,
+							  sample_tag = args.tag,
 							  quality_filter = args.quality_filter,
 							  ambiguity_intolerance = args.no_ambiguity)
 		print(f"Finished scan. Run time: {round(time.time() - start_time, 2)} s.\n")
 
 		## bind output DataFrames to MetaData
-		BindMetadata(output_data, args.metadata, sample_tag)		
+		BindMetadata(output_data, args.metadata, args.tag)		
 
 		## print key mutation summary
 		if args.stat_with_metadata:
