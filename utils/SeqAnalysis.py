@@ -452,6 +452,14 @@ def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
     # get ORF sequence
     ORF_sequence = genome_sequence[orf_start - 1:orf_end]
 
+    # check start and stop codons 
+    if ORF_sequence[:3] != 'ATG': 
+        frame_disrupted = True
+        return frame_disrupted
+    if not ORF_sequence[-3:] in ['TAA', 'TGA', 'TAG']:
+        frame_disrupted = True
+        return frame_disrupted
+
     frame_disrupted = False
     if '-' in ORF_sequence:  
         gap_start, gap_end = None, None
