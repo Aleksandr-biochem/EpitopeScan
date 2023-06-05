@@ -91,17 +91,13 @@ class Protein:
                         # in case of same genome coordinate for overlapping ORFs
                         if self.genome_start == genome_start_coordinate:
                             self.parent_protein.append(protein.name)
-
-                        # NSP12 location is an additional ambiguous case
-                        elif protein.name != 'NSP12':
-                            # in case of ambiguous location
+                        # in case of ambiguous location
+                        else:
                             self.genome_start = -1
                             self.genome_end = -1
                             if verbose:
                                 print(f"{self.name} has ambiguous location.")
                                 print(f"First located at {self.genome_start}({self.parent_protein[-1]}), then at {protein.genome_start + (i * 3)}({protein.name})")
-                        else:
-                            self.parent_protein.append(protein.name)
         
         return self
 
