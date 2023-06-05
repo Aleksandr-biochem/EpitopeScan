@@ -116,26 +116,52 @@ class Protein:
         
         return self
 
-def ReadProteinsFromFile(file):
+def ReadProteinsFromFile(file, proteome=None):
     """
     Read proteins from fasta file
 
     file - str, path to fasta file
+    proteome - list(Protein instances), reference proteome (optional)
 
     Return:
     list(Protein instances)
     """
     proteins = []
+
     with open(file, 'r') as f:
         for line in f:
             if line.startswith('>'):
-                name = line[1:].strip()
+                name_data = line[1:].strip()
                 genome_start, genome_end = None, None
 
                 # get start coordinate for reference proteins
-                if '/' in line:
-                    name, genome_start = name.split('/')
+                if '/' in name_data:
+                    name, genome_start = name_data.split('/')
                     genome_start = int(genome_start)
+
+                # get parent protein and coordinates for special input
+                elif ',' in name_data:
+                    name_data = name_data.split(',')
+                    if len(name_data) != 4:
+                        raise Exception(f"expected Name,Patent protein,start, end got: {','.join(name_data)}")
+                    else:
+                        # get the sequence
+                        name, parent_protein, start_res, end_res = name_data
+                        start_res, end_res = int(start_res), int(end_res)
+                        seq = ''
+                        for protein in proteome:
+                            if protein.name == parent_protein:
+                                seq = protein[start_res - 1:end_res]
+                        if seq != '':
+                            new_protein = Protein(name, seq)
+                        else:
+                            raise Exception(f"Couldnot locate peptide {','.join(name_data)}. Check parent protein name and coordinates")
+                        proteins.append(new_protein)
+                
+                # just peptide name followed by sequence
+                else:
+                    name = name_data
+
             else:
                 seq = line.strip()
                 if len(set(seq) - set('GALMFWKQESPVICYHRNDT')) > 0:
@@ -147,7 +173,66 @@ def ReadProteinsFromFile(file):
                     new_protein.genome_start = genome_start
                     new_protein.genome_end = genome_end
                     proteins.append(new_protein)
+
     return proteins
+
+def LoadPeptideInput(single_epitope, epitopes_file, proteome, verbose=True):
+    """
+    Check input and load peptide epitopes
+    into Protein instances
+
+    single_epitope - str, single peptide specification
+    epitopes_file - str, file with multiple epitopes
+    proteome - list(Protein instances), reference proteome
+
+    Returns:
+    list(Protein instances) - peptides loaded from input
+    """
+    # for protein in proteome: 
+    #     print(protein.name)
+
+    # read single input peptide
+    if not single_epitope is None:
+        peptide_data = single_epitope.split(',')
+
+        # name + sequence
+        if len(peptide_data) == 2:
+            name, seq = peptide_data
+            if len(set(seq) - set('GALMFWKQESPVICYHRNDT')) > 0:
+                raise Exception("Peptide sequence contains unrecognised characters")
+            epitopes_to_scan = [Protein(name, seq)]
+        
+        # parent protein + coodinates
+        elif len(peptide_data) == 4:
+            name, parent_protein, start_res, end_res = peptide_data
+            start_res, end_res = int(start_res), int(end_res)
+
+            # get the sequence
+            seq = ''
+            for protein in proteome:
+                if protein.name == parent_protein:
+                    seq = protein[start_res - 1:end_res]
+            if seq != '':
+                epitopes_to_scan = [Protein(name, seq)]
+            else:
+                raise Exception("Could not locate peptide. Check parent protein name and coordinates")
+
+        else:
+            raise Exception("Couldnot parse peptide input. Check format")
+
+    # read multiple peptides from input file
+    elif not epitopes_file is None:
+        epitopes_to_scan = ReadProteinsFromFile(epitopes_file, proteome)
+        if len(epitopes_to_scan) == 0:
+            raise Exception("Could not recognise any peptides from input file")
+
+    if verbose:
+        print("Input epitopes:")
+        for epitope in epitopes_to_scan:
+            print(f"{epitope.name} {epitope.sequence}")
+        print()
+
+    return epitopes_to_scan
 
 def MapPeptides(peptides, proteome, ref_genome, verbose=True):
     """

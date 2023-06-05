@@ -64,27 +64,11 @@ if __name__ == "__main__":
 	## operation in scan mode
 	if args.mode == 'scan':
 
-		## check peptide inputs
-
-		# single input peptide
-		if not args.epitope is None:
-			name, seq = args.epitope.split(',')
-			if len(set(seq) - set('GALMFWKQESPVICYHRNDT')) > 0:
-				raise Exception("Peptide sequence contains unrecognised characters")
-			epitopes_to_scan = [Protein(name, seq)]
-			print(f"Input epitope {epitopes_to_scan[0].name} {epitopes_to_scan[0].sequence}\n")
-
-		# multiple peptides as fasta
-		elif not args.file is None:
-			epitopes_to_scan = ReadProteinsFromFile(args.file)
-			if len(epitopes_to_scan) > 0:
-				print(f"Found {len(epitopes_to_scan)} input peptides in {args.file}\n")
-			else:
-				raise Exception("Could not recognise any peptides from input file")
-
-		# if no input epitopes provided
-		else:
+		# check and load peptide inputs
+		if (args.epitope is None) and (args.file is None):
 			raise Exception("No epitopes provided")
+		else:
+			epitopes_to_scan = LoadPeptideInput(args.epitope, args.file, proteome)
 
 		# map epitopes onto proteome and assign coding DNA sequences
 		epitopes_to_scan  = MapPeptides(epitopes_to_scan,
