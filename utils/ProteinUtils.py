@@ -101,6 +101,56 @@ class Protein:
         
         return self
 
+    def LocateFromCoordinates(self, parent_protein, start_res, proteome):
+        """
+        Locate using predefined position in parent protein
+
+        parent_protein - str, predefined parent protein name
+        start_res - int, first residue of the peptide in parent protein
+        proteome - list(Protein instances), reference proteome
+        """
+
+        ###############################################
+        # 1st Plp1ab/NSP12 resisue produced after frame shift
+        prot_shift_coord = {'Plp1ab': 4402, 'NSP12': 10}
+        ###############################################
+
+        # calculate genome coordinates from parent protein
+        for protein in proteome:
+            if protein.name == parent_protein:
+                
+                genome_start_coordinate = protein.genome_start + ((start_res - 1) * 3)
+                genome_end_coordinate = genome_start_coordinate + (len(self) * 3) - 1
+                
+                # account for parent proteins containing shift
+                if protein.name in prot_shift_coord.keys():
+                    if start_res >= prot_shift_coord[protein.name]:
+                        genome_start_coordinate -= 1
+                        genome_end_coordinate -= 1
+                    elif (start_res + len(self) - 1) >= prot_shift_coord[protein.name]:
+                            genome_end_coordinate -= 1
+
+        self.genome_start = genome_start_coordinate
+        self.genome_end = genome_end_coordinate
+
+        # run through the proteome to define all parent proteins
+        # and assign primary protein start
+        for protein in proteome:
+            if (protein.genome_start < genome_start_coordinate) and \
+               (protein.genome_end   > genome_end_coordinate):
+                
+                if len(self.parent_protein) == 0:
+                    # calculate protein start minding potential shift
+                    base_distance = genome_start_coordinate - protein.genome_start
+                    if base_distance % 3 == 2:
+                        base_distance += 1
+                    start = (base_distance // 3) + 1 
+                    self.protein_start = start
+                    
+                self.parent_protein.append(protein.name)
+
+        return self
+
     def AssignCodingSequence(self, reference_genome):
         """
         Assign reference coding DNA sequence
@@ -116,12 +166,13 @@ class Protein:
         
         return self
 
-def ReadProteinsFromFile(file, proteome=None):
+def ReadProteinsFromFile(file, proteome=None, ref_genome=None):
     """
     Read proteins from fasta file
 
     file - str, path to fasta file
     proteome - list(Protein instances), reference proteome (optional)
+    ref_genome - str, reference genome sequence (optional)
 
     Return:
     list(Protein instances)
@@ -139,11 +190,11 @@ def ReadProteinsFromFile(file, proteome=None):
                     name, genome_start = name_data.split('/')
                     genome_start = int(genome_start)
 
-                # get parent protein and coordinates for special input
+                # create Protein instance from coordinate input
                 elif ',' in name_data:
                     name_data = name_data.split(',')
                     if len(name_data) != 4:
-                        raise Exception(f"expected Name,Patent protein,start, end got: {','.join(name_data)}")
+                        raise Exception(f"expected 'name,parent_protein,start,end' got: {','.join(name_data)}")
                     else:
                         # get the sequence
                         name, parent_protein, start_res, end_res = name_data
@@ -154,6 +205,9 @@ def ReadProteinsFromFile(file, proteome=None):
                                 seq = protein[start_res - 1:end_res]
                         if seq != '':
                             new_protein = Protein(name, seq)
+                            new_protein.LocateFromCoordinates(parent_protein,
+                                                              start_res,
+                                                              proteome)
                         else:
                             raise Exception(f"Couldnot locate peptide {','.join(name_data)}. Check parent protein name and coordinates")
                         proteins.append(new_protein)
@@ -176,7 +230,7 @@ def ReadProteinsFromFile(file, proteome=None):
 
     return proteins
 
-def LoadPeptideInput(single_epitope, epitopes_file, proteome, verbose=True):
+def LoadPeptideInput(single_epitope, epitopes_file, proteome, ref_genome, verbose=True):
     """
     Check input and load peptide epitopes
     into Protein instances
@@ -184,12 +238,11 @@ def LoadPeptideInput(single_epitope, epitopes_file, proteome, verbose=True):
     single_epitope - str, single peptide specification
     epitopes_file - str, file with multiple epitopes
     proteome - list(Protein instances), reference proteome
+    ref_genome - str, reference genome sequence
 
     Returns:
     list(Protein instances) - peptides loaded from input
     """
-    # for protein in proteome: 
-    #     print(protein.name)
 
     # read single input peptide
     if not single_epitope is None:
@@ -198,6 +251,7 @@ def LoadPeptideInput(single_epitope, epitopes_file, proteome, verbose=True):
         # name + sequence
         if len(peptide_data) == 2:
             name, seq = peptide_data
+            # check protein identity of the sequence
             if len(set(seq) - set('GALMFWKQESPVICYHRNDT')) > 0:
                 raise Exception("Peptide sequence contains unrecognised characters")
             epitopes_to_scan = [Protein(name, seq)]
@@ -212,17 +266,23 @@ def LoadPeptideInput(single_epitope, epitopes_file, proteome, verbose=True):
             for protein in proteome:
                 if protein.name == parent_protein:
                     seq = protein[start_res - 1:end_res]
+
+            # initiate Protein instance with a particular start
             if seq != '':
-                epitopes_to_scan = [Protein(name, seq)]
+                epitopes_to_scan = [
+                Protein(name, seq).LocateFromCoordinates(parent_protein,
+                                                         start_res,
+                                                         proteome)
+                ]
             else:
                 raise Exception("Could not locate peptide. Check parent protein name and coordinates")
 
         else:
             raise Exception("Couldnot parse peptide input. Check format")
 
-    # read multiple peptides from input file
+    # or read multiple peptides from input file
     elif not epitopes_file is None:
-        epitopes_to_scan = ReadProteinsFromFile(epitopes_file, proteome)
+        epitopes_to_scan = ReadProteinsFromFile(epitopes_file, proteome, ref_genome)
         if len(epitopes_to_scan) == 0:
             raise Exception("Could not recognise any peptides from input file")
 
@@ -252,7 +312,9 @@ def MapPeptides(peptides, proteome, ref_genome, verbose=True):
 
     for peptide in peptides:
 
-        peptide.LocateSubsequence(proteome)
+        # if peptide was not prelocated from protein coordinates
+        if peptide.genome_start is None:
+            peptide.LocateSubsequence(proteome)
 
         # check if peptide was located successfully
         if peptide.genome_start is None:
@@ -273,10 +335,8 @@ def MapPeptides(peptides, proteome, ref_genome, verbose=True):
         print(f"Could not map {couldnt_map}")
         print(f"Mapped ambiguously {mapped_ambiguously}\n")
 
+        for peptide in mapped_peptides:
+            print(peptide)
+        print()
+
     return mapped_peptides
-
-
-
-
-
-

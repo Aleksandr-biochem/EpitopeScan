@@ -68,7 +68,8 @@ if __name__ == "__main__":
 		if (args.epitope is None) and (args.file is None):
 			raise Exception("No epitopes provided")
 		else:
-			epitopes_to_scan = LoadPeptideInput(args.epitope, args.file, proteome)
+			epitopes_to_scan = LoadPeptideInput(args.epitope, args.file,
+												proteome, reference_genome)
 
 		# map epitopes onto proteome and assign coding DNA sequences
 		epitopes_to_scan  = MapPeptides(epitopes_to_scan,
