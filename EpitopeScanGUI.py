@@ -13,11 +13,11 @@ def main():
  
 	# Headline
 	st.markdown("""
-	### EpitopeScan output analysis
+	### EpitopeScan mutation data analysis
 
-- This app allows to explore `EpitopeScan` outputs
+- This app facilitates the analysis of mutation data generated with `EpitopeScan`
 
-- App built with `Python`, `Streamlit` and `Plotly`
+- Built with `Python`, `Streamlit` and `Plotly`
 ---""")
 
 	# Sidebar for input
@@ -43,23 +43,30 @@ def main():
 		with st.spinner(f"Loading input tables..."):
 			peptide, mutation_data, AA_mutation_matrix, NA_mutation_matrix = LoadData(uploaded_files)
 
+		# check if any samples have metadata
+		no_metadata = True if sum(mutation_data['has_metadata'] == 1) == 0 else False
+
 		## Print key sample statistics ##
 		KeyStatisticsSection(peptide, mutation_data)
 
 		## Plot key statistics in time ##
-		KeyStatisticsPlotSection(mutation_data)
+		KeyStatisticsPlotSection(mutation_data, no_metadata)
 
 		## List and plot found mutations ##
-		MutationStatSection(peptide, mutation_data)
+		MutationStatSection(peptide, mutation_data, no_metadata)
 
 		## Sequence conservation ##
 		SequenceConservationSection(NA_mutation_matrix, AA_mutation_matrix)
 
 		## Lineage statistics ##
-		LineageStatSection(peptide, mutation_data)
+		LineageStatSection(peptide, mutation_data, no_metadata)
 
 def KeyStatisticsSection(peptide, mutation_data):
-	st.write('<p style="font-size:22px;weight:bold">1. Key sample statistics</p>',
+	"""
+	App section with general sample statistics
+	"""
+
+	st.write('<p style="font-size:22px;weight:bold">1. General sample statistics</p>',
 			 unsafe_allow_html=True)
 
 	# load reference genome
@@ -83,6 +90,8 @@ def KeyStatisticsSection(peptide, mutation_data):
 	part1 = f"Originates from {peptide.parent_protein[0]} protein (residues {peptide.protein_start} to {peptide.protein_start + len(peptide) - 1})."
 	part2 = f" Genome coordinates: {peptide.genome_start}-{peptide.genome_end}"
 	st.write(part1 + part2)
+	if len(peptide.parent_protein) > 1:
+		st.write(f"Other parent proteins: {', '.join(peptide.parent_protein[1:])}")
 
 	with st.container():
 		# create two column layout
@@ -93,7 +102,8 @@ def KeyStatisticsSection(peptide, mutation_data):
 			# whether to stat samples without metadata
 			stat_only_metadata = st.checkbox('Only stat samples with metadata')
 		
-			key_stat = PrintKeyStat(peptide.name, mutation_data,
+			key_stat = PrintKeyStat(peptide.name,
+									mutation_data,
 				                    stat_only_metadata)
 
 		# second column to plot pie chart
@@ -101,33 +111,51 @@ def KeyStatisticsSection(peptide, mutation_data):
 			pie_chart = KeyPieChart(key_stat)
 			st.plotly_chart(pie_chart)
 
-def KeyStatisticsPlotSection(mutation_data):
-
-	st.write('<p style="font-size:22px;weight:bold">2. Key sample statistics in time</p>',
+def KeyStatisticsPlotSection(mutation_data, no_metadata):
+	"""
+	Plot sample categories in time
+	as counts or proportions in weekly sample counts
+	"""
+	st.write('<p style="font-size:22px;weight:bold">2. General sample statistics in time</p>',
 			 unsafe_allow_html=True)
 
-	# plot counts or proportion
-	col1, col2 = st.columns((1, 3))
-	with col1:
-		plot_as2 = st.selectbox('Plot as:', ('counts', 'proportion'), key=1)
-		plot_proportion2 = True if plot_as2 == 'proportion' else False
+	if no_metadata:
+		st.write('<p style="font-size:18px">No samples with metadata to plot</p>',
+			 	 unsafe_allow_html=True)
+	else:
+		# plot counts or proportion
+		col1, col2 = st.columns((1, 3))
+		with col1:
+			plot_as2 = st.selectbox('Plot as:', ('counts', 'proportion'), key=1)
+			plot_proportion2 = True if plot_as2 == 'proportion' else False
 
-	with st.spinner(f"Generating weekly stat plot..."):
-		key_stat_plot = PlotKeyStat(mutation_data,
-									plot_proportion=plot_proportion2)
-		st.plotly_chart(key_stat_plot)
+		with st.spinner(f"Generating weekly stat plot..."):
+			key_stat_plot = PlotKeyStat(mutation_data,
+										plot_proportion=plot_proportion2)
+			st.plotly_chart(key_stat_plot)
 
-def MutationStatSection(peptide, mutation_data):
+def MutationStatSection(peptide, mutation_data, no_metadata):
+	"""
+	Section with statistics for each mutation
+	"""
 	st.write('<p style="font-size:22px;weight:bold">3. Stat mutations</p>',
 			 unsafe_allow_html=True)
 
 	# whether to stat samples without metadata
 	stat_only_metadata = st.checkbox('Only stat samples with metadata',
-									  value=True)
+									  value=True if not no_metadata else False,
+									  key='stat_only_metadata')
 	
-	# additional parameters
+	# additional parameters for stat calculation
 	with st.container():
 		col1, col2, col3, col4, col5 = st.columns((1.5, 1.5, 1.2, 1.2, 1))
+
+		# check if date span specification is valid
+		if not no_metadata:
+			def_start_date = mutation_data['sample_date'].min()
+			def_end_date = mutation_data['sample_date'].max()
+		else:
+			def_start_date, def_end_date = None, None
 
 		with col1:
 			stat_as = st.selectbox('Stat mutations as', ('individual', 'combinations'), key=2)
@@ -136,12 +164,10 @@ def MutationStatSection(peptide, mutation_data):
 			blosum_v = st.text_input('BLOSUM score version', '90')
 			blosum_v = int(blosum_v)
 		with col3:
-			def_start_date = mutation_data['sample_date'].min()
 			start_date = st.date_input("Stat starting from:", def_start_date, key='d1',
 										disabled=not stat_only_metadata)
 			start_date = datetime(start_date.year, start_date.month, start_date.day)
 		with col4:
-			def_end_date = mutation_data['sample_date'].max()
 			end_date = st.date_input("and up to:", def_end_date, key='d2',
 									 disabled=not stat_only_metadata)
 			end_date = datetime(end_date.year, end_date.month, end_date.day)
@@ -201,50 +227,60 @@ def MutationStatSection(peptide, mutation_data):
 
 @st.cache_data
 def SequenceConservationSection(NA_mutation_matrix, AA_mutation_matrix):
+	"""
+	Plot sequence conservation
+	"""
 	with st.spinner(f"Generating sequence conservation plot..."):
 		sequence_conservation_plot = PlotSeqConservation(NA_mutation_matrix,
 														 AA_mutation_matrix)
 		st.plotly_chart(sequence_conservation_plot, use_container_width=True)
 
-def LineageStatSection(peptide, mutation_data):
+def LineageStatSection(peptide, mutation_data, no_metadata):
+	"""
+	Generate statistics for samples lineages
+	"""
 	st.write('<p style="font-size:22px;weight:bold">4. Stat mutations by lineage</p>',
 			 unsafe_allow_html=True)
 
-	# specify date range for analysis
-	# three last weeks by default
-	with st.container():
-			col1, col2, col3, pad = st.columns((1.2, 1.2, 1, 1))
+	if no_metadata:
+		st.write('<p style="font-size:18px">No samples with metadata to stat</p>',
+			 	 unsafe_allow_html=True)
+	else:
+		# specify date range for analysis
+		# three last weeks by default
+		with st.container():
+				col1, col2, col3, pad = st.columns((1.2, 1.2, 1, 1))
 
-			def_end_date = mutation_data['sample_date'].max()
-			def_start_date = def_end_date - timedelta(weeks=3) 
+				def_end_date = mutation_data['sample_date'].max()
+				def_start_date = def_end_date - timedelta(weeks=3) 
 
-			with col1:
-				start_date = st.date_input("Stat starting from:", def_start_date, key='d4')
-				start_date = datetime(start_date.year, start_date.month, start_date.day)
-			with col2:
-				end_date = st.date_input("and up to:", def_end_date, key='d5')
-				end_date = datetime(end_date.year, end_date.month, end_date.day)
-			with col3:
-				report_as = st.selectbox('Report samples as:', ('counts', 'proportion'), key=4)
-				report_proportion = True if report_as == 'proportion' else False
+				with col1:
+					start_date = st.date_input("Stat starting from:", def_start_date, key='d4')
+					start_date = datetime(start_date.year, start_date.month, start_date.day)
+				with col2:
+					end_date = st.date_input("and up to:", def_end_date, key='d5')
+					end_date = datetime(end_date.year, end_date.month, end_date.day)
+				with col3:
+					report_as = st.selectbox('Report samples as:', ('counts', 'proportion'), key=4)
+					report_proportion = True if report_as == 'proportion' else False
 
-	# select mutations to stat
-	with st.spinner(f"Generating lineage statistics..."):
+		# select mutations to stat
+		with st.spinner(f"Generating lineage statistics..."):
 
-		summary2 = MutationTextSummary(peptide,
-									   mutation_data[mutation_data['has_metadata'] == 1],
-				                       stat_mutations=0,
-				                       sort_by=0,
-				                       blosum_version=90)
-		found_mutations2 = summary2.iloc[:, 1].values
+			summary2 = MutationTextSummary(peptide,
+										   mutation_data[mutation_data['has_metadata'] == 1],
+					                       stat_mutations=0,
+					                       sort_by=0,
+					                       blosum_version=90)
+			found_mutations2 = summary2.iloc[:, 1].values
 
-		# get lineage summary
-		lineage_summary = StatLineages(mutation_data[mutation_data['has_metadata'] == 1],
-						               mutations=found_mutations2,
-						               report_proportion=report_proportion,
-						               time_start=start_date,
-						               time_end=end_date)
-		st.write(lineage_summary)
+			# get lineage summary
+			lineage_summary = StatLineages(mutation_data[mutation_data['has_metadata'] == 1],
+							               mutations=found_mutations2,
+							               report_proportion=report_proportion,
+							               time_start=start_date,
+							               time_end=end_date)
+			st.write(lineage_summary)
 
 if __name__ == "__main__":
 	main()
