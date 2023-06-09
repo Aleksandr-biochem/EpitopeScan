@@ -9,6 +9,7 @@ def translate(seq, codon_table):
     """
     Translate DNA sequence into amino acid sequence
     indicating deletions and ambiguous residues
+    assumes input sequence of 3n
 
     seq - str, DNA sequence of length 3n
     codon_table - dict, DNA codon table
@@ -31,7 +32,7 @@ def translate(seq, codon_table):
 
 def GlobalPtoteinAlignment(seq1, seq2, blosum_version=90, gap_penalty=-2.0):
     """
-    Needleman–Wunsch algorithm alignment of 2 protein sequences 
+    Needleman–Wunsch algorithm alignment for 2 protein sequences 
     with BLOSUM scoring matrix
     Implemetation based on:
     https://python.plainenglish.io/global-sequence-alignment-implementation-in-python-from-scratch-5a8a611dbb1e
@@ -68,10 +69,13 @@ def GlobalPtoteinAlignment(seq1, seq2, blosum_version=90, gap_penalty=-2.0):
             # define score for each transition
             left = scoring_matrix[i][j - 1] + gap_penalty
             up   = scoring_matrix[i - 1][j] + gap_penalty
+
+            # for ambiguous bases assume that it is the same one
             if seq2[j-1] == 'X':
                 score = BLOSUM_matrix[f"{seq1[i-1]}"][f"{seq1[i-1]}"]
             else:
                 score = BLOSUM_matrix[f"{seq1[i-1]}"][f"{seq2[j-1]}"]
+
             diag = scoring_matrix[i - 1][j - 1] + score
             
             # define the maximum score
@@ -114,7 +118,7 @@ def CompareNAsequences(peptide, sample_seq):
     """
     Compare two DNA sequences to report substitutions and deletions
     
-    peptide - Protein instance, peptide for comparison
+    peptide - Protein instance, reference peptide for comparison
     sample_seq - str, sample DNA sequence to compare
 
     Returns
@@ -148,12 +152,16 @@ def CompareAAsequences(peptide,
                        partially_spanning_deletions_found,
                        add_seq_left, add_seq_right):
     """
-    Compare sequences to find AA substitutions
+    Compare DAN sequences to report AA substitutions and deletions
     
     peptide - Protein instance, peptide for comparison
     sample_seq - str, sample DNA sequence to compare
     codon_table - dict, DNA codon table
     ambiguity_intolerance - bool, treat any ambiguous bases as no coverage
+    partially_spanning_deletions_found - bool, True if sequence contains
+    partially spanning deletions
+    add_seq_left - str, sequence to be added to the left edge of reference coding sequence
+    add_seq_right - str, sequence to be added to the right edge of reference coding sequence
 
     Returns:
     list(str) AA substitutions and deletions
@@ -174,7 +182,7 @@ def CompareAAsequences(peptide,
         # expand edges if any
         refrnc_seq = add_seq_left + refrnc_seq + add_seq_right
 
-        # translate without deletions
+        # translate DNA sequences without deletions
         sample_protein = translate(sample_seq.replace('-', ''), codon_table)
         refrnc_protein = translate(refrnc_seq, codon_table)
 
@@ -187,33 +195,35 @@ def CompareAAsequences(peptide,
         if len(add_seq_right) > 0:
             sample_protein = sample_protein[:-(len(add_seq_right)//3)]
             refrnc_protein = refrnc_protein[:-(len(add_seq_right)//3)]
+    # if no spanning deletions are found just translate sequences
     else:
         sample_protein = translate(sample_seq, codon_table)
         refrnc_protein = translate(refrnc_seq, codon_table)
 
     # check presence of ambiguous residues
     ambiguous_residues = sample_protein.count('X')
-    if ambiguity_intolerance and ambiguous_residues > 0:
+    if ambiguity_intolerance and (ambiguous_residues > 0):
         AA_substitutions = ['-']
-    
-    # if too many amb. codons - do not trust
+    # if too many amb. codons - mark as insufficient coverage
     elif ambiguous_residues > (len(sample_protein) // 3):
         AA_substitutions = ['-'] 
-
+    # process sequences with sufficient coverage
     else:
         # compare residue by residue
         for i, (ref_res, sample_res) in enumerate(zip(refrnc_protein, sample_protein)):
+            
+            coordinate = peptide.protein_start + i
 
-            # deletion
+            # record deletion
             if sample_res == '-':
-                coordinate = peptide.protein_start + i
                 AA_substitutions.append(f'Δ{coordinate}{ref_res}')
+                # count deletion
                 peptide.AA_mutations_matrix[i, -1] += 1
-
-            else:
-
+           
+           # record substitution for unambiguous residues
+            elif sample_res != 'X':
                 # for unambiguous codons report residue change if any
-                if (sample_res != 'X') and (ref_res != sample_res):
+                if ref_res != sample_res:
                     coordinate = peptide.protein_start + i
                     AA_substitutions.append(f"{ref_res}{coordinate}{sample_res}")
 
@@ -236,7 +246,8 @@ def ReportSequenceMuatations(peptide,
     genome_seq - str, aligned sample genome sequence
     reference_genome - str, reference viral genome
     codon_table - dict, DNA codon table
-    ambiguity_intolerance - bool, treat any ambiguous bases as no coverage
+    ambiguity_intolerance - bool, treat presence of any ambiguous bases
+    as insuddicient coverage
 
     Returns:
     list(str, str) - NA mutations and AA mutations
@@ -251,7 +262,7 @@ def ReportSequenceMuatations(peptide,
     sample_seq_for_NA_comparison = genome_seq[peptide.genome_start - 1:peptide.genome_end]
 
     # get the coding sequence for AA comparison
-    # in case of frame shift extend for AA comparison
+    # in case of frame shift extend for codon-by-codon comparison
     if (peptide.parent_protein[0] == 'Plp1ab') and \
        ((peptide.genome_start < orf_shift_coord) and \
        (orf_shift_coord < peptide.genome_end)):
@@ -267,13 +278,13 @@ def ReportSequenceMuatations(peptide,
             partially_spanning_deletions_found = True
             break
 
-    # in case partially spanning deletions found
+    # if partially spanning deletions are found
     # check if these deletions are at sequece edges
     add_seq_left, add_seq_right = '', ''
     if partially_spanning_deletions_found:
 
         # sequence pretreatment for left edge spanning deletions
-        add_left = 0 # n codons to be added on left
+        add_left = 0 # n codons to be added on the left
         if sample_seq_for_AA_comparison[0] == '-':
 
             # deduce how long is this deletion
@@ -351,6 +362,7 @@ def ExpandMutationData(dfs):
     list(pd DataFrame) - list of expanded DataFrames
     """
 
+    # for each data frame in list
     for i in range(len(dfs)):
 
         # get unique protein mutations
@@ -361,10 +373,11 @@ def ExpandMutationData(dfs):
                 for mut in muts_list:
                     unique_AA_mutations.add(mut)
 
+        # if noo AA mutations found
         if len(unique_AA_mutations) == 0:
         	continue
 
-        # create dataframe of 0
+        # create dataframe of zeros with mutations columns
         AA_substitution_df = pd.DataFrame(0,
                                           index=np.arange(dfs[i].shape[0]),
                                           columns=list(unique_AA_mutations))
@@ -383,7 +396,7 @@ def ExpandMutationData(dfs):
 
 def BindMetadata(dfs, metadata_file, sample_tag):
     """
-    Bind mutation DataFrames to metadata
+    Bind metadata to mutation DataFrames
 
     dfs - list(pd DataFrame), list of DataFrames to expand
     metadata_file - str, path to metadata csv file
@@ -399,27 +412,21 @@ def BindMetadata(dfs, metadata_file, sample_tag):
     if not metadata_file is None:
         print(f"Merging output with metadata from {metadata_file}...")
 
-        # read metadata
+        # read metadata and select needed columns
         metadata = pd.read_csv(metadata_file, low_memory=False)
-        metadata = metadata[['sequence_name', 'adm1',
-        					 'sample_date', 'epi_week',
-        					 'usher_lineage']]
+        metadata = metadata[['sequence_name', 'sample_date',
+                             'epi_week', 'usher_lineage']]
+        # add column indicating presence of metadata
+        metadata['has_metadata'] = 1
 
-        # filter samples by tag if any
-        if not sample_tag is None:
-        	metadata = metadata[metadata['sequence_name'].str.contains(sample_tag)]
-
-        # bind each output df to data
+        # bind each output df to metadata
         for i in range(len(dfs)):
             dfs[i] = dfs[i].merge(metadata, how='left', on='sequence_name')
             
-            # transform adm1 column into feature indicating presence of metadata
-            dfs[i].rename(columns={'adm1':'has_metadata'}, inplace=True)
+            # fill nans for samples without metadata
             dfs[i]['has_metadata'] = dfs[i]['has_metadata'].fillna(0)
-            dfs[i]['has_metadata'] = dfs[i]['has_metadata'] \
-            								 .where(dfs[i]['has_metadata'] == 0, 1)
-            
-            # transfrom sample_date to datime format
+
+            # transfrom sample_date to datime format to stat in the end
             dfs[i]['sample_date']= pd.to_datetime(dfs[i]['sample_date'],
             											  format='%Y-%m-%d')
 
@@ -439,7 +446,7 @@ def BindMetadata(dfs, metadata_file, sample_tag):
 
 def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
     """
-    Check if the ORF in sample genome is disrupted
+    Check if the ORF in sample genome is disrupted by deletions
     
     orf_start - int, ORF start coordinate in genome
     orf_end - int, ORF end coordinate in genome
@@ -452,7 +459,7 @@ def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
     # get ORF sequence
     ORF_sequence = genome_sequence[orf_start - 1:orf_end]
 
-    # check start and stop codons 
+    # check start and stop codons mutations
     if ORF_sequence[:3] != 'ATG': 
         frame_disrupted = True
         return frame_disrupted
@@ -460,15 +467,13 @@ def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
         frame_disrupted = True
         return frame_disrupted
 
+    # check deletions disrupting the frame
     frame_disrupted = False
     if '-' in ORF_sequence:  
         gap_start, gap_end = None, None
-
         # scan sequence by codons
         for i in range(0, len(ORF_sequence), 3):
-            
             codon = ORF_sequence[i:i+3]
-            
             for j, b in enumerate(codon):
                 if b == '-':
                     if gap_start is None:
@@ -481,7 +486,6 @@ def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
                             return frame_disrupted
                         gap_start, gap_end = None, None
 
-
     return frame_disrupted
 
 def ScanMSA(epitopes_to_scan,
@@ -492,7 +496,7 @@ def ScanMSA(epitopes_to_scan,
             quality_filter=None,
             ambiguity_intolerance=False):
     """
-    Scan genome MSA to report mutations within peptides
+    Scan genome MSA to report mutations within input peptides
 
     epitopes_to_scan - list(Protein instances), peptides to analyse
     msa_file - str, path to MSA file
@@ -506,23 +510,6 @@ def ScanMSA(epitopes_to_scan,
     list(pd DataFrame) - list of DataFrames with mutation data for each peptide
     """
 
-    total_samples = 0 # found samples count
-    rejected_by_tag = 0 # samples rejected by tag
-    discarded_by_quality = 0 # count samples discarded by quality if neccessary
-
-    # initiate blank substitution matrices for each epitope
-    for epitope in epitopes_to_scan:
-        epitope.AA_mutations_matrix = np.zeros((len(epitope.sequence), 22), dtype=int)
-        epitope.NA_mutations_matrix = np.zeros((len(epitope.coding_sequence), 5), dtype=int)
-
-    # read ORF coordinates for ORF disruption control
-    cur_dir = os.path.realpath(os.path.dirname(__file__))
-    ORF_coordinates = dict()
-    with open(f'{cur_dir}/../reference_sequences/ORFs_reference.txt', 'r') as f:
-        for line in f:
-            orf, start, end, prot, l = line.strip().split()
-            ORF_coordinates[prot] = (int(start), int(end))
-    
     # codon table
     codon_table = {
         'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M',
@@ -543,13 +530,30 @@ def ScanMSA(epitopes_to_scan,
         'TGC':'C', 'TGT':'C', 'TGA':'*', 'TGG':'W'
     }
 
-    # compile regex pattern from tag to filter samples if any
+    total_samples = 0 # total samples count
+    rejected_by_tag = 0 # samples rejected by tag
+    discarded_by_quality = 0 # count samples discarded by N quality
+
+    # initiate blank substitution matrices for each epitope
+    for epitope in epitopes_to_scan:
+        epitope.AA_mutations_matrix = np.zeros((len(epitope.sequence), 22), dtype=int)
+        epitope.NA_mutations_matrix = np.zeros((len(epitope.coding_sequence), 5), dtype=int)
+
+    # read Open Reading Frames coordinates
+    # for ORF disruption control
+    cur_dir = os.path.realpath(os.path.dirname(__file__))
+    ORF_coordinates = dict()
+    with open(f'{cur_dir}/../reference_sequences/ORFs_reference.txt', 'r') as f:
+        for line in f:
+            orf, start, end, prot, l = line.strip().split()
+            ORF_coordinates[prot] = (int(start), int(end))
+
+    # compile regex pattern from input to filter samples if any
     sample_tag = re.compile(sample_tag) if sample_tag else None
     # define if samples have to be filtered by tag
     filter_samples = True if (not sample_tag is None) else False
     
     ## parse MSA file and analyse each sequence
-
     df = [] # list to append extracted mutatiuon data
     with open(msa_file, 'r') as f:
 
@@ -564,12 +568,12 @@ def ScanMSA(epitopes_to_scan,
                 sample_name = line.strip()[1:] # get sample name
                 new_row = [sample_name] # initiate new row in mutation data
 
-                # check presense of filtering tag if necessary
+                # check presense of tag if necessary
                 skip_sample = False
                 if filter_samples:
                     skip_sample = False if sample_tag.search(sample_name) else True
                     
-            # sample genome line
+            # genome sequence line
             else:
                 
                 if not skip_sample:
@@ -584,7 +588,7 @@ def ScanMSA(epitopes_to_scan,
                             discarded_by_quality += 1
                             continue
 
-                    # check frame disruptions for epitopes parent proteins
+                    # check frame disruptions for epitope parent proteins
                     frame_disruption = dict()
                     for epitope in epitopes_to_scan:
                         if not epitope.parent_protein[0] in frame_disruption.keys():
@@ -593,7 +597,7 @@ def ScanMSA(epitopes_to_scan,
                                                               genome_aln)
                             frame_disruption[epitope.parent_protein[0]] = disruption
 
-                    # compare sequence of each epitope to the sample
+                    # compare reference sequence of each epitope to the sample
                     for epitope in epitopes_to_scan:
 
                         # check if parent protein frame is desrupted 
@@ -613,20 +617,23 @@ def ScanMSA(epitopes_to_scan,
                     df.append(new_row)
                 
                 else:
+                    # count sample rejected by tag
                     rejected_by_tag += 1
 
+            # update sample count in stdout
             if time.time() - time_checkpoint > 1:
                 time_checkpoint = time.time()
                 print(f"Scanned samples: {total_samples}", end="\r")
     
+    # print scanning statistics
     if verbose:
         print()
         print(f"Found {total_samples} samples")
         if filter_samples:
             print(f"Rejected {rejected_by_tag} samples by tag")
         if not quality_filter is None:
-            print(f"Rejected {discarded_by_quality} genomes having >0.05 N bases")
-        print(f"Returning mutations data for {len(df)} samples\n")
+            print(f"Rejected {discarded_by_quality} genomes having >{quality_filter} of N bases")
+        print(f"Returning mutation data for {len(df)} samples\n")
 
     # separate dataframes for each epitope
     print("Finalising output data...\n")

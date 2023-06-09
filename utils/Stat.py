@@ -10,7 +10,7 @@ from ProteinUtils import *
 
 def StatIndividualMutations(df, blosum_version=90):
     """
-    Count and score individual protein mutations in data
+    Count and score individual protein mutations
     
     df - pd DataFrame, mutations data
 
@@ -19,13 +19,15 @@ def StatIndividualMutations(df, blosum_version=90):
     """
     blosum_matrix = bl.BLOSUM(blosum_version)
     
+    # assumes that first 3 columns are sequence name and NA, AA mutation lists
+    # and last 4 columns are metadata related
     stat = df.iloc[:, 3:-4].apply(lambda x: (x == 1).sum())
     
     # create stat dictionary
     AA_mutations_stat = dict()
     for item in stat.items():
         if 'Δ' in item[0]:
-            score = -6.0
+            score = -6.0 # some negative score for deletion
         else:
             score = blosum_matrix[item[0][0]][item[0][-1]]
         AA_mutations_stat[item[0]] = (item[1], score)
@@ -34,7 +36,7 @@ def StatIndividualMutations(df, blosum_version=90):
     
 def CombinationsStat(df, blosum_version=90):
     """
-    Count and score protein combinationed mutations in data
+    Count and score protein mutations as ocurring combinations
     
     df - pd DataFrame, mutations data
 
@@ -69,7 +71,7 @@ def CombinationsStat(df, blosum_version=90):
             score = 0.0
             for mut in combination:
                 if 'Δ' in mut:
-                    score -= 6.0
+                    score -= 6.0 # subtract deletion score
                 else:
                     score += blosum_matrix[mut[0]][mut[-1]]
 
@@ -77,7 +79,8 @@ def CombinationsStat(df, blosum_version=90):
     
     return AA_mutations_stat
 
-def MutationTextSummary(peptide, df,
+def MutationTextSummary(peptide,
+                        df,
                         stat_mutations=0,
                         sort_by=0,
                         blosum_version=90):
@@ -110,6 +113,7 @@ def MutationTextSummary(peptide, df,
     # remove 0 counts
     AA_mutations_stat = {k:v for k, v in AA_mutations_stat.items() if v[0] > 0}
     
+    # generate summary table
     summary_table = []
     for mut in AA_mutations_stat:
         
@@ -129,7 +133,7 @@ def MutationTextSummary(peptide, df,
         
         summary_table.append(summary_row)
     
-    # print the summary
+    # return table as pd DataFrame
     summary_table = pd.DataFrame(summary_table, columns = [peptide.sequence, ' ', 'count', 'score'])
 
     return summary_table
@@ -144,10 +148,10 @@ def StatEpitopeData(input_dir,
                     blosum_version=90,
                     metadata_filter=False):
     """
-    Print mutations summary from EpitopeScan results data
+    Read EpitopeScan output data, stat and print summary
 
     input_dir - str, path to EpitopeScan results dir
-    proteome - list(Protein instances), reference proteome to map peptides
+    proteome - list(Protein instances), reference proteome
     reference_genome - str, reference genome sequence
     stat_mitations - int, 0 (stat individual mutations) or 1 (combinations)
     sort_by - int, 0 (by count) or 1 (by BLOSUM score)
@@ -161,12 +165,14 @@ def StatEpitopeData(input_dir,
     list_dir = [os.path.isfile(os.path.join(input_dir, f)) for f in os.listdir(input_dir)]
     one_peptide = all(list_dir)
 
-	# list peptide names to analyse 
+	# list peptide names to analyse from file names 
     if one_peptide:
+        # get peptide name from mutation data file
         peptide_names = glob.glob(f"{input_dir}/*.tsv")[0]
         peptide_names = [peptide_names.split('/')[-1].split('_')[0]]
         prefixes = [f"{input_dir}/"]
     else:
+        # subdir names are peptide names
         peptide_names = next(os.walk(input_dir))[1]
         prefixes = [f"{input_dir}/{name}/" for name in peptide_names]
 
@@ -174,7 +180,7 @@ def StatEpitopeData(input_dir,
     printed_headline_statistics, message = False, ''
     for name, prefix in zip(peptide_names, prefixes):
 
-        # extract peptide sequence
+        # extract peptide sequence from AA substitution matrix
         matrix = pd.read_csv(f"{prefix}{name}_AA_mutation_matrix.csv", index_col=0)
         peptide = Protein(name, ''.join(matrix.index))
 
@@ -191,7 +197,7 @@ def StatEpitopeData(input_dir,
         # convert sample_date to datetime
         df['sample_date']= pd.to_datetime(df['sample_date'], format='%Y-%m-%d')
 
-        # report total number of samples
+        # record total number of analysed samples
         if not printed_headline_statistics:
             message += f"Found data on {len(peptide_names)} peptides from {df.shape[0]} samples\n"
 
@@ -200,30 +206,33 @@ def StatEpitopeData(input_dir,
             df = df[df['has_metadata'] == 1]
             if not printed_headline_statistics:
                 message += f"Only keeping {df.shape[0]} samples with metadata\n"
-        else:
-            # in case dates are provided - ignore them
-            start_date, end_date = None, None
+            
+        # if some samples have no metadata
+        # date to filters are irrelevent
+        some_samples_lack_metadata = True if 0 in df['has_metadata'] else False
 
         # filter by date and get reported range
-        if not time_start is None:
-            df = df[df['sample_date'] >= time_start]
-            start_date = time_start.strftime('%d/%m/%Y')
-        else:
-            start_date = df['sample_date'].min().strftime('%d/%m/%Y')
+        if not some_samples_lack_metadata:
+            if not time_start is None:
+                df = df[df['sample_date'] >= time_start]
+                start_date = time_start.strftime('%d/%m/%Y')
+            else:
+                start_date = df['sample_date'].min().strftime('%d/%m/%Y')
 
-        if not time_end is None:
-            df = df[df['sample_date'] <= time_end]
-            end_date = time_end.strftime('%d/%m/%Y')
-        else:
-            end_date = df['sample_date'].max().strftime('%d/%m/%Y')
+            if not time_end is None:
+                df = df[df['sample_date'] <= time_end]
+                end_date = time_end.strftime('%d/%m/%Y')
+            else:
+                end_date = df['sample_date'].max().strftime('%d/%m/%Y')
+
+            message += f"{df.shape[0]} samples dated between {start_date} and {end_date}\n"
 
         # headline statistics
         if not printed_headline_statistics:
-            message += f"{df.shape[0]} samples dated between {start_date} and {end_date}\n"
             print(message)
             printed_headline_statistics = True
 
-        # print corresponding summary
+        # print corresponding summary table
         summary = MutationTextSummary(peptide,
 		                             df,
 		                             stat_mutations,
@@ -231,7 +240,8 @@ def StatEpitopeData(input_dir,
 		                             blosum_version)
         
         print(f"{summary.shape[0]} mutations for {peptide.name}")
-        print(summary.to_string())
+        if summary.shape[0] > 0:
+                print(summary.to_string())
         print()
 
     return
