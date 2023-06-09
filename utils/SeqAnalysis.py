@@ -466,23 +466,19 @@ def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
         return frame_disrupted
 
     # check deletions disrupting the frame
+    # we are looking for deletions with length != 3n
     frame_disrupted = False
     if '-' in ORF_sequence:  
-        gap_start, gap_end = None, None
-        # scan sequence by codons
-        for i in range(0, len(ORF_sequence), 3):
-            codon = ORF_sequence[i:i+3]
-            for j, b in enumerate(codon):
-                if b == '-':
-                    if gap_start is None:
-                        gap_start = j
-                    gap_end = j
+        len_gap = 0
+        for base in ORF_sequence:
+            if base == '-':
+                len_gap += 1
+            elif len_gap > 0:
+                if len_gap % 3 > 0:
+                    frame_disrupted = True
+                    break
                 else:
-                    if not gap_start is None:
-                        if not (gap_start, gap_end) in [(0, 2), (1, 0), (2, 1)]:
-                            frame_disrupted = True
-                            return frame_disrupted
-                        gap_start, gap_end = None, None
+                    len_gap = 0
 
     return frame_disrupted
 
