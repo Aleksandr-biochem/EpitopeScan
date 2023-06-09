@@ -148,7 +148,7 @@ def CompareNAsequences(peptide, sample_seq):
 def CompareAAsequences(peptide,
                        sample_seq,
                        codon_table,
-                       ambiguity_intolerance,
+                       ambiguity_threshold,
                        partially_spanning_deletions_found,
                        add_seq_left, add_seq_right):
     """
@@ -157,7 +157,8 @@ def CompareAAsequences(peptide,
     peptide - Protein instance, peptide for comparison
     sample_seq - str, sample DNA sequence to compare
     codon_table - dict, DNA codon table
-    ambiguity_intolerance - bool, treat any ambiguous bases as no coverage
+    ambiguity_threshold - float, max proportion of ambiguous peptide residues
+    in sample sequence to treat as sufficient coverage
     partially_spanning_deletions_found - bool, True if sequence contains
     partially spanning deletions
     add_seq_left - str, sequence to be added to the left edge of reference coding sequence
@@ -200,13 +201,10 @@ def CompareAAsequences(peptide,
         sample_protein = translate(sample_seq, codon_table)
         refrnc_protein = translate(refrnc_seq, codon_table)
 
-    # check presence of ambiguous residues
+    # check content of ambiguous residues
     ambiguous_residues = sample_protein.count('X')
-    if ambiguity_intolerance and (ambiguous_residues > 0):
+    if (ambiguous_residues / len(sample_protein)) > ambiguity_threshold:
         AA_substitutions = ['-']
-    # if too many amb. codons - mark as insufficient coverage
-    elif ambiguous_residues > (len(sample_protein) // 3):
-        AA_substitutions = ['-'] 
     # process sequences with sufficient coverage
     else:
         # compare residue by residue
@@ -237,7 +235,7 @@ def ReportSequenceMuatations(peptide,
                              genome_seq,
                              reference_genome,
                              codon_table,
-                             ambiguity_intolerance=False):
+                             ambiguity_threshold):
     """
     Report NA and AA mutations in peptide sequence 
     against reference sequence
@@ -246,8 +244,8 @@ def ReportSequenceMuatations(peptide,
     genome_seq - str, aligned sample genome sequence
     reference_genome - str, reference viral genome
     codon_table - dict, DNA codon table
-    ambiguity_intolerance - bool, treat presence of any ambiguous bases
-    as insuddicient coverage
+    ambiguity_threshold - float, max proportion of ambiguous peptide residues
+    in sample sequence to treat as sufficient coverage
 
     Returns:
     list(str, str) - NA mutations and AA mutations
@@ -335,7 +333,7 @@ def ReportSequenceMuatations(peptide,
     AA_mutations = CompareAAsequences(peptide,
                                       sample_seq_for_AA_comparison,
                                       codon_table,
-                                      ambiguity_intolerance,
+                                      ambiguity_threshold,
                                       partially_spanning_deletions_found,
                                       add_seq_left, add_seq_right)
 
@@ -494,7 +492,7 @@ def ScanMSA(epitopes_to_scan,
             sample_tag=None,
             verbose=True,
             quality_filter=None,
-            ambiguity_intolerance=False):
+            ambiguity_threshold=0.33):
     """
     Scan genome MSA to report mutations within input peptides
 
@@ -504,7 +502,8 @@ def ScanMSA(epitopes_to_scan,
     sample_tag - str, sample tag to subset
     varbose - bool, print key statistics at the end, default False
     quality_filter - float, max N base proportion to tolerate
-    ambiguity_intolerance - bool, treat any ambiguous bases as no coverage
+    ambiguity_threshold - float, max proportion of ambiguous peptide residues
+    in sample sequence to treat as sufficient coverage (default 0.33)
 
     Returns:
     list(pd DataFrame) - list of DataFrames with mutation data for each peptide
@@ -611,7 +610,7 @@ def ScanMSA(epitopes_to_scan,
                                                                     genome_aln,
                                                                     reference_genome,
                                                                     codon_table,
-                                                                    ambiguity_intolerance))
+                                                                    ambiguity_threshold))
 
                     # add new row to the data
                     df.append(new_row)

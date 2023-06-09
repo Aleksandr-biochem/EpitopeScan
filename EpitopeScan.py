@@ -33,7 +33,8 @@ name, parent protein name, first and last residue indeces in parent protein (ind
 	parser_scan.add_argument("-o", "--out",     help="Output directory name", type=str)
 	parser_scan.add_argument("-t", "--tag",     help="Sample name pattern to filter", type=str)
 	parser_scan.add_argument("-q", "--quality_filter", help="Max threshold for N bases proportion in genome. Recommended 0.05", type=float)
-	parser_scan.add_argument("-n", "--no_ambiguity",   help="Treat presence of any ambiguous bases in peptide region as insufficient coverage", action='store_true')
+	parser_scan.add_argument("-n", "--ambiguity_threshold",
+							 help="Max proportion of ambiguous residues in peptide sequence regarded as sufficient coverage", type=float, default=0.33)
 	parser_scan.add_argument("-b", "--blosum",  help="BLOSUM matrix version for mutation scoring. Default 90", type=int, default=90)
 	parser_scan.add_argument("-s", "--sort",    help="Sort mutations summary by count(0) or score(1). Default 0", type=int, choices=[0, 1], default=0)
 	parser_scan.add_argument("-a", "--stat",    help="Stat individual mutations(0) or combinations(1). Default 0", type=int, choices=[0, 1], default=0)
@@ -85,7 +86,7 @@ name, parent protein name, first and last residue indeces in parent protein (ind
 							  reference_genome = reference_genome,
 							  sample_tag = args.tag,
 							  quality_filter = args.quality_filter,
-							  ambiguity_intolerance = args.no_ambiguity)
+							  ambiguity_threshold = args.ambiguity_threshold)
 		print(f"Finished scan. Run time: {round(time.time() - start_time, 2)} s.\n")
 
 		## bind output DataFrames to MetaData
