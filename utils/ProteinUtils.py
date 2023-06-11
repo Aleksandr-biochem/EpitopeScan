@@ -64,7 +64,7 @@ class Protein:
         for protein in proteins:
                 
             # scan the protein to locate the sequence
-            for i in range(0, len(protein)-len(self)):
+            for i in range(0, len(protein) - len(self) + 1):
 
                 # slice subsequence to compare
                 sebsequence = protein[i:i + len(self)]
@@ -142,8 +142,8 @@ class Protein:
         # run through the proteome to define all parent proteins
         # and assign primary protein start
         for protein in proteome:
-            if (protein.genome_start < genome_start_coordinate) and \
-               (protein.genome_end   > genome_end_coordinate):
+            if (protein.genome_start <= genome_start_coordinate) and \
+               (protein.genome_end   >= genome_end_coordinate):
                 
                 # for the first primary parent protein
                 # calculate protein start minding potential shift
