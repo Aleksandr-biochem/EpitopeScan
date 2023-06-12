@@ -30,7 +30,7 @@ def translate(seq, codon_table):
 
     return protein
 
-def GlobalPtoteinAlignment(seq1, seq2, blosum_version=90, gap_penalty=-2.0):
+def GlobalPtoteinAlignment(seq1, seq2, blosum_version=90, left_gap_penalty=-2.0):
     """
     Needleman–Wunsch algorithm alignment for 2 protein sequences 
     with BLOSUM scoring matrix
@@ -45,15 +45,16 @@ def GlobalPtoteinAlignment(seq1, seq2, blosum_version=90, gap_penalty=-2.0):
     Returns:
     (seq1_aligned, seq1_aligned) - (str, str) aligned protein sequences
     """
+    up_gap_penalty = -50.0 # we dont want to break reference protein sequence
     BLOSUM_matrix = bl.BLOSUM(blosum_version)
     
     # create intial matrix
     scoring_matrix = np.zeros((len(seq1)+1, len(seq2)+1))
     # initialise first column and first row
     for i in range(1, len(seq1)+1):
-        scoring_matrix[i][0] = scoring_matrix[0][0] + (i * gap_penalty)
+        scoring_matrix[i][0] = scoring_matrix[0][0] + (i * up_gap_penalty)
     for i in range(1, len(seq2)+1):
-        scoring_matrix[0][i] = scoring_matrix[0][0] + (i * gap_penalty)
+        scoring_matrix[0][i] = scoring_matrix[0][0] + (i * left_gap_penalty)
         
     # initialise trace-back matrix
     trace_back_matrix = np.zeros((len(seq1)+1, len(seq2)+1), dtype=str)
@@ -67,14 +68,14 @@ def GlobalPtoteinAlignment(seq1, seq2, blosum_version=90, gap_penalty=-2.0):
         for j in range(1, len(seq2)+1): # columns
             
             # define score for each transition
-            left = scoring_matrix[i][j - 1] + gap_penalty
-            up   = scoring_matrix[i - 1][j] + gap_penalty
+            left = scoring_matrix[i][j - 1] + left_gap_penalty
+            up   = scoring_matrix[i - 1][j] + up_gap_penalty
 
             # for ambiguous bases assume that it is the same one
             if seq2[j-1] == 'X':
-                score = BLOSUM_matrix[f"{seq1[i-1]}"][f"{seq1[i-1]}"]
+                score = BLOSUM_matrix[f"{seq1[i-1]}{seq1[i-1]}"]
             else:
-                score = BLOSUM_matrix[f"{seq1[i-1]}"][f"{seq2[j-1]}"]
+                score = BLOSUM_matrix[f"{seq1[i-1]}{seq2[j-1]}"]
 
             diag = scoring_matrix[i - 1][j - 1] + score
             
