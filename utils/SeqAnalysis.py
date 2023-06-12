@@ -73,9 +73,9 @@ def GlobalPtoteinAlignment(seq1, seq2, blosum_version=90, left_gap_penalty=-2.0)
 
             # for ambiguous bases assume that it is the same one
             if seq2[j-1] == 'X':
-                score = BLOSUM_matrix[f"{seq1[i-1]}{seq1[i-1]}"]
+                score = BLOSUM_matrix[f"{seq1[i-1]}"][f"{seq1[i-1]}"]
             else:
-                score = BLOSUM_matrix[f"{seq1[i-1]}{seq2[j-1]}"]
+                score = BLOSUM_matrix[f"{seq1[i-1]}"][f"{seq2[j-1]}"]
 
             diag = scoring_matrix[i - 1][j - 1] + score
             
