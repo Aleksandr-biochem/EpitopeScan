@@ -34,7 +34,7 @@ name, parent protein name, first and last residue indeces in parent protein (ind
 	parser_scan.add_argument("-t", "--tag",     help="Sample name pattern to filter", type=str)
 	parser_scan.add_argument("-q", "--quality_filter", help="Max threshold for N bases proportion in genome. Recommended 0.05", type=float)
 	parser_scan.add_argument("-n", "--ambiguity_threshold",
-							 help="Max proportion of ambiguous residues in peptide sequence regarded as sufficient coverage", type=float, default=0.33)
+							 help="Max proportion of ambiguous residues in peptide sequence regarded as sufficient coverage. Defalut 1/3", type=float, default=1/3)
 	parser_scan.add_argument("-b", "--blosum",  help="BLOSUM matrix version for mutation scoring. Default 90", type=int, default=90)
 	parser_scan.add_argument("-s", "--sort",    help="Sort mutations summary by count(0) or score(1). Default 0", type=int, choices=[0, 1], default=0)
 	parser_scan.add_argument("-a", "--stat",    help="Stat individual mutations(0) or combinations(1). Default 0", type=int, choices=[0, 1], default=0)

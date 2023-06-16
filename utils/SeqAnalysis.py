@@ -459,12 +459,18 @@ def CheckFrameDisruption(orf_start, orf_end, genome_sequence):
     ORF_sequence = genome_sequence[orf_start - 1:orf_end]
 
     # check start and stop codons mutations
-    if ORF_sequence[:3] != 'ATG': 
-        frame_disrupted = True
-        return frame_disrupted
-    if not ORF_sequence[-3:] in ['TAA', 'TGA', 'TAG']:
-        frame_disrupted = True
-        return frame_disrupted
+    if (len(set(ORF_sequence[:3]) - set('ATCG-')) == 0) and \
+    ORF_sequence[:3] != 'ATG':
+        return True
+    if (len(set(ORF_sequence[-3:]) - set('ATCG-')) == 0) and \
+    not (ORF_sequence[-3:] in ['TAA', 'TGA', 'TAG']):
+        return True
+
+    # deletions around Plp1ab frameshift 
+    # are regarded as non-functionality
+    if (orf_start< 13469) and (orf_end > 13469):
+        if '-' in genome_sequence[13465:13471]:
+            return True
 
     # check deletions disrupting the frame
     # we are looking for deletions with length != 3n
