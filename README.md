@@ -5,13 +5,13 @@ EpitopeScan is a Python3 toolset facilitating the tracking of mutations in SARS-
 1. [Repository contents](#sec1) </br>
 2. [Download and set-up](#sec2) </br>
 3. [EpitopeScan usage](#sec3) </br>
-3.1 [Input data](#sec31) </br>
-3.2 [Running command line tool](#sec32) </br>
- 	3.2.1 [Scan mode](#sec321) </br>
- 	3.2.2 [Stat mode](#sec322) </br>
- 	3.2.3 [Mutation data output](#sec323) </br>
-3.3 [Running graphical user-interface tool](#sec33) </br>
-3.4 [Running test scripts](#sec34) </br>
+    1. [Input data](#sec31) </br>
+    1. [Running command line tool](#sec32) </br>
+        1. [Scan mode](#sec321) </br>
+        1. [Stat mode](#sec322) </br>
+        1. [Mutation data output](#sec323) </br>
+    1. [Running graphical user-interface tool](#sec33) </br>
+    1. [Running test scripts](#sec34) </br>
 4. [Algorithm details](#sec4) </br>
 
 <a name="sec1"></a>
