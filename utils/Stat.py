@@ -209,7 +209,7 @@ def StatEpitopeData(input_dir,
             
         # if some samples have no metadata
         # date to filters are irrelevent
-        some_samples_lack_metadata = True if 0 in df['has_metadata'] else False
+        some_samples_lack_metadata = False if (sum(df['has_metadata'] == 0) == 0) else True
 
         # filter by date and get reported range
         if not some_samples_lack_metadata:
