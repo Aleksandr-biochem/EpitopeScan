@@ -138,6 +138,43 @@ def MutationTextSummary(peptide,
 
     return summary_table
 
+def GetKeyStat(mutation_data, stat_only_metadata):
+    """
+    Return and print key statistics of loaded samples
+
+    peptide_name - str, peptide name
+    mutation_data - pd DataFrame, data to stat
+    stat_only_metadata - bool, stat only samples with metadata
+
+    Returns
+    key_stat - dict, key samples statistics
+    """
+    total = mutation_data.shape[0]
+    has_metadata = sum(mutation_data['has_metadata'] == 1)
+
+    mask = mutation_data['has_metadata'] == 1 if stat_only_metadata \
+           else mutation_data['has_metadata'].isin([0, 1])
+
+    some_samples_lack_metadata = True if 0 in mutation_data['has_metadata'] else False
+
+    no_mutation = sum((mutation_data['AA_mutations'].isna()) & mask)
+    no_coverage = sum((mutation_data['AA_mutations'] == '-') & mask)
+    non_functional = sum((mutation_data['AA_mutations'] == 'NF') & mask)
+    
+    # calculate number of samples with mutations
+    have_mutation = has_metadata if stat_only_metadata else total
+    have_mutation = have_mutation - no_mutation - no_coverage - non_functional
+
+    # create dictionary
+    key_stat = {'Have_mutation' :  have_mutation,
+                'No_mutation' :    no_mutation,
+                'No_coverage' :    no_coverage,
+                'Non_functional' : non_functional,
+                'Total': total,
+                'Has_metadata': has_metadata}
+    
+    return key_stat
+
 def StatEpitopeData(input_dir,
 					proteome,
 					reference_genome,
@@ -233,11 +270,19 @@ def StatEpitopeData(input_dir,
             printed_headline_statistics = True
 
         # print corresponding summary table
+        key_stat = GetKeyStat(df, stat_only_metadata=False)
+        print(f"For {peptide.name}")
+        total = key_stat['Total']
+        print(f"{key_stat['Have_mutation']} ({round(key_stat['Have_mutation'] * 100/ total, 2)}%) have mutations")
+        print(f"{key_stat['No_mutation']} ({round(key_stat['No_mutation'] * 100/ total, 2)}%) have no mutations")
+        print(f"{key_stat['No_coverage']} ({round(key_stat['No_coverage'] * 100/ total, 2)}%) reported with insufficient coverage")
+        print(f"{key_stat['Non_functional']} ({round(key_stat['Non_functional'] * 100/ total, 2)}%) reported as non-functional")
+        print()
         summary = MutationTextSummary(peptide,
-		                             df,
-		                             stat_mutations,
-		                             sort_by,
-		                             blosum_version)
+		                              df,
+		                              stat_mutations,
+		                              sort_by,
+		                              blosum_version)
         
         print(f"{summary.shape[0]} mutations for {peptide.name}")
         if summary.shape[0] > 0:

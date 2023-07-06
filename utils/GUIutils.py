@@ -7,7 +7,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 sys.path.append(os.path.realpath(os.path.dirname(__file__)))
-from Stat import *
 from ProteinUtils import *
 
 def VerifyInput(files):
@@ -74,62 +73,6 @@ def LoadData(files):
 														 format='%Y-%m-%d')
 
 	return peptide, mutation_data, AA_mutation_matrix, NA_mutation_matrix
-
-@st.cache_data
-def PrintKeyStat(peptide_name, mutation_data, stat_only_metadata):
-	"""
-	Return and print key statistics of loaded samples
-
-	peptide_name - str, peptide name
-	mutation_data - pd DataFrame, data to stat
-	stat_only_metadata - bool, stat only samples with metadata
-
-	Returns
-	key_stat - dict, key samples statistics
-	"""
-	total = mutation_data.shape[0]
-	has_metadata = sum(mutation_data['has_metadata'] == 1)
-
-	mask = mutation_data['has_metadata'] == 1 if stat_only_metadata \
-		   else mutation_data['has_metadata'].isin([0, 1])
-
-	some_samples_lack_metadata = True if 0 in mutation_data['has_metadata'] else False
-
-	no_mutation = sum((mutation_data['AA_mutations'].isna()) & mask)
-	no_coverage = sum((mutation_data['AA_mutations'] == '-') & mask)
-	non_functional = sum((mutation_data['AA_mutations'] == 'NF') & mask)
-	
-	# calculate number of samples with mutations
-	have_mutation = has_metadata if stat_only_metadata else total
-	have_mutation = have_mutation - no_mutation - no_coverage - non_functional
-
-	# create dictionary
-	key_stat = {'Have mutation' :  have_mutation,
-				'No mutation' :    no_mutation,
-				'No coverage' :    no_coverage,
-				'non-functional' : non_functional}
-
-	# print statistics
-	st.write(f"**Data for peptide {peptide_name} contains:**")
-	st.write(f"{total} samples")
-	st.write(f"of them {has_metadata} have metadata ({round(has_metadata*100/total, 1)}% of all)")
-	
-	# in case we can provide clear date range
-	if not some_samples_lack_metadata:
-		start_date = mutation_data['sample_date'].min().strftime('%d/%m/%Y')
-		end_date = mutation_data['sample_date'].max().strftime('%d/%m/%Y')
-		st.write(f"dated between {start_date} and {end_date}")
-
-	if stat_only_metadata:
-		st.write("**Of samples with metadata:**")
-	else:
-		st.write("**Of all samples:**")
-	st.markdown(f"- {have_mutation} ({round(have_mutation * 100/ total, 2)}%) have mutations")
-	st.markdown(f"- {no_mutation} ({round(no_mutation * 100/ total, 2)}%) have no mutations")
-	st.markdown(f"- {no_coverage} ({round(no_coverage * 100/ total, 2)}%) reported with insufficient coverage")
-	st.markdown(f"- {non_functional} ({round(non_functional * 100/ total, 2)}%) reported as non-functional")
-	
-	return key_stat
 
 @st.cache_data
 def KeyPieChart(key_stat):

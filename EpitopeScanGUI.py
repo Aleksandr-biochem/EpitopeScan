@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 sys.path.append(os.path.realpath(os.path.dirname(__file__)))
 from utils.GUIutils import *
+from utils.Stat import *
 from utils.ProteinUtils import *
 
 def main():
@@ -102,12 +103,36 @@ def KeyStatisticsSection(peptide, mutation_data):
 			# whether to stat samples without metadata
 			stat_only_metadata = st.checkbox('Only stat samples with metadata')
 		
-			key_stat = PrintKeyStat(peptide.name,
-									mutation_data,
-				                    stat_only_metadata)
+			key_stat = GetKeyStat(mutation_data,
+				                  stat_only_metadata)
+
+			# print statistics
+			st.write(f"**Data for peptide {peptide.name} contains:**")
+			st.write(f"{key_stat['Total']} samples")
+			st.write(f"of them {key_stat['Has_metadata']} have metadata ({round(key_stat['Has_metadata']*100/key_stat['Total'], 1)}% of all)")
+			
+			# in case we can provide clear date range
+			some_samples_lack_metadata = True if 0 in mutation_data['has_metadata'] else False
+			if not some_samples_lack_metadata:
+				start_date = mutation_data['sample_date'].min().strftime('%d/%m/%Y')
+				end_date = mutation_data['sample_date'].max().strftime('%d/%m/%Y')
+				st.write(f"dated between {start_date} and {end_date}")
+
+			if stat_only_metadata:
+				st.write("**Of samples with metadata:**")
+			else:
+				st.write("**Of all samples:**")
+
+			total = key_stat['Has_metadata'] if stat_only_metadata else key_stat['Total']
+			st.markdown(f"- {key_stat['Have_mutation']} ({round(key_stat['Have_mutation'] * 100/ total, 2)}%) have mutations")
+			st.markdown(f"- {key_stat['No_mutation']} ({round(key_stat['No_mutation'] * 100/ total, 2)}%) have no mutations")
+			st.markdown(f"- {key_stat['No_coverage']} ({round(key_stat['No_coverage'] * 100/ total, 2)}%) reported with insufficient coverage")
+			st.markdown(f"- {key_stat['Non_functional']} ({round(key_stat['Non_functional'] * 100/ total, 2)}%) reported as non-functional")
 
 		# second column to plot pie chart
 		with col2:
+			key_stat.pop('Has_metadata', None)
+			key_stat.pop('Total', None)
 			pie_chart = KeyPieChart(key_stat)
 			st.plotly_chart(pie_chart)
 
