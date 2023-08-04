@@ -12,7 +12,6 @@ EpitopeScan is a Python3 toolset facilitating the tracking of mutations in SARS-
         1. [Mutation data output](#sec323) </br>
     1. [Running graphical user-interface tool](#sec33) </br>
     1. [Running test scripts](#sec34) </br>
-4. [Algorithm details](#sec4) </br>
 
 <a name="sec1"></a>
 ## 1. Repository contents
@@ -23,9 +22,9 @@ EpitopeScan is a Python3 toolset facilitating the tracking of mutations in SARS-
 
 - `utils` folder contains supporting Python3 code with functions and classes for command-line and GUI tools.
 
-- `reference_sequences` contains reference SARS-CoV-2 data listed from [GISAID](https://gisaid.org/wiv04/). This consists of reference genome `EPI_ISL_402124.fasta`, table with Open Reading Frames information `ORFs_reference.txt` (ORF name, genome start and end coordinates, name of translated protein, length of translated protein), reference protein sequences `protein_sequences_reference.fasta`.
+- `reference_sequences` contains reference SARS-CoV-2 data listed from [GISAID](https://gisaid.org/wiv04/). This consists of the reference genome `EPI_ISL_402124.fasta`, a table with Open Reading Frames information `ORFs_reference.txt` (ORF name, genome start and end coordinates, name of translated protein, length of translated protein), and reference protein sequences `protein_sequences_reference.fasta`.
 
-- `test` contains subfolder with example data for analysis `example_data`, subfolders with test data `T#_...` and the script `run_EpitopeScan_test.py` for the command-line tool testing.
+- `test` contains subfolder with example data for analysis `example_data`, subfolders with test data `T#_...` and the script `run_EpitopeScan_test.py` for command-line tool testing.
 
 - `requirements.txt` is a list of packages to be installed when setting up Python3 environment.
 
@@ -71,7 +70,7 @@ If you want to call EpitopeScan quickly from anywhere on the system, consult the
 
 **a)** ***Peptide*** for analysis can be provided as a sequence OR as parent protein name + start and end residue indices. Multiple sequences can be provided as a file (see usage examples below for more).
 
-**b)** ***Genome Multiple Sequence Alignment (MSA)*** in FASTA format. EpitopeScan was originally developed to analyse genome alignments from [COG-UK](https://www.cogconsortium.uk/priority-areas/data-linkage-analysis/public-data-analysis/). The tool itself does not perform genome alignments. If you want to prepare your set of genomes for analysis, you shoulf use `EPI_ISL_402124.fasta` as the reference sequence and any aligner of your choice (for example, MAFFT as described [here](https://github.com/nihcompmed/SARS-CoV-2-genome)).
+**b)** ***Genome Multiple Sequence Alignment (MSA)*** in FASTA format. EpitopeScan was originally developed to analyse genome alignments from [COG-UK](https://www.cogconsortium.uk/priority-areas/data-linkage-analysis/public-data-analysis/). The tool itself does not perform genome alignments. If you want to prepare your set of genomes for analysis, you should use `EPI_ISL_402124.fasta` as the reference sequence and any aligner of your choice (for example, MAFFT as described [here](https://github.com/nihcompmed/SARS-CoV-2-genome)).
 
 **c)** ***Metadata*** on samples dates and lineages in CSV format. Analysis can be performed without this input. However, it will only be possible to count mutations without any insights from sampling date and lineage. EpitopeScan was originally configured to deal with metadata from [COG-UK](https://www.cogconsortium.uk/priority-areas/data-linkage-analysis/public-data-analysis/). If you wish to use your custom table, make sure to prepare CSV table with the following columns: sequence\_name, sample\_date, epi\_week, usher\_lineage (view `test/example_data/example_metadata.csv` as a guide). 
 
@@ -82,7 +81,7 @@ If you want to call EpitopeScan quickly from anywhere on the system, consult the
 - *scan* to perform MSA file analysis and generate mutation data
 - *stat* to generate brief mutation statistics from preexisting mutation data 
 
-The following execution examples are given under the assumption of running the tools from `EpitopeScan` folder as `./EpitopeScan_tool_name.py`. In general, the tools should be called as `path/to/EpitopeScan_tool_name.py`.
+The following execution examples are given under the assumption of running the tools from `EpitopeScan` folder as `./EpitopeScan_tool_name.py`. In general, the tool should be called as `path/to/EpitopeScan_tool_name.py`.
 
 <a name="sec321"></a>
 #### 3.2.1 Scan mode
@@ -154,7 +153,7 @@ There is a help section to navigate flags:
 ```
 
 **Flag description:**
-- `-i` (--input) PAth to directory with EpitopeScan scan output
+- `-i` (--input) Path to directory with EpitopeScan scan output
 - `-b` (--blosum) BLOSUM version for mutation scoring. Default 90
 - `-s` (--sort), options: {0,1}, Sort mutations summary by count(0) or score(1). Default 0
 - `-a` (--stat), options: {0,1}, Stat individual mutations (0) or combinations(1).  Default 0
@@ -176,8 +175,8 @@ To stat occurring combinations instead of individual mutations in a desired date
 <a name="sec323"></a>
 #### 3.2.3 Mutation data output
 
-For each peptide, 3 tables are generated and named under following templates:
-- `EpitopeName_mutation_data.tsv` contains following columns: sequence\_name, NA\_mutations (list of nucleic acid substitutions, comma-separated), AA\_mutations (list of amino acid substitutions, comma-separated), one-hot-encoding columns detailing presence of discovered AA mutations in each sample, sample\_date, epi\_week (epidemic week), usher\_lineage (viral lineage), has\_metadata (0 if False and 1 if True). If no metadata was provided, the last columns will be filled with NaNs.
+For each peptide, 3 tables are generated and named according to the following templates:
+- `EpitopeName_mutation_data.tsv` contains columns: sequence\_name, NA\_mutations (list of nucleic acid substitutions, comma-separated), AA\_mutations (list of amino acid substitutions, comma-separated), one-hot-encoding columns detailing presence of discovered AA mutations in each sample, sample\_date, epi\_week (epidemic week), usher\_lineage (viral lineage), has\_metadata (0 if False and 1 if True). If no metadata was provided, the last columns will be filled with NaNs.
 - `EpitopeName_AA_mutation_matrix.csv` count matrix. Index corresponds to AA residue in reference epitope sequence. Columns contain counts of each possible residue (including translation stop) and deletions (Δ) at corresponding peptide position
 - `EpitopeName_NA_mutation_matrix.csv` count matrix for coding nucleic acid sequece is orginised in same manner to AA matrix
 
@@ -206,8 +205,4 @@ Run the test script after installing EpitopeScan to verify the correct performan
 ```
 ./test/run_EpitopeScan_test.py
 ```
-<a name="sec4"></a>
-## 4. Algorithm details
-
-This section contains several remarks about EpitopeScan algorithm, which may be important to correctly interpret the output:
 
