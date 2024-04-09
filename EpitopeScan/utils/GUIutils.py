@@ -6,8 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-sys.path.append(os.path.realpath(os.path.dirname(__file__)))
-from ProteinUtils import *
+from EpitopeScan.utils.ProteinUtils import *
 
 def VerifyInput(files):
 	"""

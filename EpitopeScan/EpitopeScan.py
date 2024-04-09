@@ -3,18 +3,18 @@ import re
 import os
 import sys
 import time
+import argparse
 import numpy as np
 import pandas as pd
+import pkg_resources
 from datetime import datetime
 
-sys.path.append(os.path.realpath(os.path.dirname(__file__)))
-from utils.Stat import *
-from utils.SeqAnalysis import *
-from utils.ProteinUtils import *
+from EpitopeScan.utils.Stat import *
+from EpitopeScan.utils.SeqAnalysis import *
+from EpitopeScan.utils.ProteinUtils import *
 
-if __name__ == "__main__":
 
-	import argparse
+def main():
 
 	parser = argparse.ArgumentParser(description="EpitopeScan. Scan and analyse SARS-CoV-2 genome Multiple Sequence Alignment for peptide mutations")
 
@@ -53,15 +53,18 @@ name, parent protein name, first and last residue indeces in parent protein (ind
 
 	args = parser.parse_args()
 
-	## load reference genome 
-	script_dir = os.path.realpath(os.path.dirname(__file__))
-	with open(f'{script_dir}/reference_sequences/EPI_ISL_402124.fasta', 'r') as f:
+	## get reference file names
+	file_reference_genome  = pkg_resources.resource_filename('EpitopeScan', 'reference_sequences/EPI_ISL_402124.fasta')
+	file_protein_sequences = pkg_resources.resource_filename('EpitopeScan', 'reference_sequences/protein_sequences_reference.fasta')
+
+	## load reference genome
+	with open(file_reference_genome, 'r') as f:
 		lines = f.readlines()
 	reference_genome = lines[1].strip()
 	del lines
 
 	## load reference proteome
-	proteome = ReadProteinsFromFile(f'{script_dir}/reference_sequences/protein_sequences_reference.fasta')
+	proteome = ReadProteinsFromFile(file_protein_sequences)
 
 	## operation in scan mode
 	if args.mode == 'scan':
@@ -168,4 +171,16 @@ name, parent protein name, first and last residue indeces in parent protein (ind
 						time_end=end_date,
 						blosum_version=args.blosum,
 						metadata_filter=args.stat_with_metadata)
+
+	return
+
+
+if __name__ == "__main__":
+	
+	# launch as a command-line tool
+	main()
+
+	
+
+	
 

@@ -2,13 +2,14 @@
 import os
 import sys
 import pandas as pd
+import pkg_resources
 import streamlit as st
+from streamlit.web import cli as stcli
 from datetime import datetime, timedelta 
 
-sys.path.append(os.path.realpath(os.path.dirname(__file__)))
-from utils.GUIutils import *
-from utils.Stat import *
-from utils.ProteinUtils import *
+from EpitopeScan.utils.GUIutils import *
+from EpitopeScan.utils.Stat import *
+from EpitopeScan.utils.ProteinUtils import *
 
 def main():
  
@@ -306,6 +307,15 @@ def LineageStatSection(peptide, mutation_data, no_metadata):
 							               time_start=start_date,
 							               time_end=end_date)
 			st.write(lineage_summary)
+
+def run_gui():
+	"""
+	A wrap to enwoke the app from the terminal by name
+	"""
+	app_file = pkg_resources.resource_filename('EpitopeScan', 'EpitopeScanGUI.py')
+	sys.argv = ["streamlit", "run", app_file, "--server.maxUploadSize", "1000"]
+	sys.exit(stcli.main())
+
 
 if __name__ == "__main__":
 	main()

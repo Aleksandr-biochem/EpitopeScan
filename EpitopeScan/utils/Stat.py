@@ -5,8 +5,7 @@ import glob
 import blosum as bl
 import pandas as pd
 
-sys.path.append(os.path.realpath(os.path.dirname(__file__)))
-from ProteinUtils import *
+from EpitopeScan.utils.ProteinUtils import *
 
 def StatIndividualMutations(df, blosum_version=90):
     """

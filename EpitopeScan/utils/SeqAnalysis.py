@@ -4,6 +4,7 @@ import time
 import numpy as np
 import blosum as bl
 import pandas as pd
+import pkg_resources
 
 def translate(seq, codon_table):
     """
@@ -543,9 +544,9 @@ def ScanMSA(epitopes_to_scan,
 
     # read Open Reading Frames coordinates
     # for ORF disruption control
-    cur_dir = os.path.realpath(os.path.dirname(__file__))
     ORF_coordinates = dict()
-    with open(f'{cur_dir}/../reference_sequences/ORFs_reference.txt', 'r') as f:
+    file_orf_coordinates = pkg_resources.resource_filename('EpitopeScan', 'reference_sequences/ORFs_reference.txt')
+    with open(file_orf_coordinates, 'r') as f:
         for line in f:
             orf, start, end, prot, l = line.strip().split()
             ORF_coordinates[prot] = (int(start), int(end))
