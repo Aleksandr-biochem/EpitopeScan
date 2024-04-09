@@ -12,9 +12,13 @@ EpitopeScan is a Python3 toolset facilitating the tracking of mutations in SARS-
         1. [Mutation data output](#sec323) </br>
     1. [Running graphical user-interface tool](#sec33) </br>
     1. [Running test scripts](#sec34) </br>
+4. [Advice on constructing Multiple Sequence Alignment](#sec4) </br>
+5. [Questions?](#sec5) </br>
 
 <a name="sec1"></a>
 ## 1. Repository contents
+
+`EpitopeScan` package folder contains:
 
 - `EpitopeScan.py` is a command-line tool for mutation report from SARS-CoV-2 multiple genome alignment and for calculation of general mutation statistics.
 
@@ -24,41 +28,78 @@ EpitopeScan is a Python3 toolset facilitating the tracking of mutations in SARS-
 
 - `reference_sequences` contains reference SARS-CoV-2 data listed from [GISAID](https://gisaid.org/wiv04/). This consists of the reference genome `EPI_ISL_402124.fasta`, a table with Open Reading Frames information `ORFs_reference.txt` (ORF name, genome start and end coordinates, name of translated protein, length of translated protein), and reference protein sequences `protein_sequences_reference.fasta`.
 
-- `test` contains subfolder with example data for analysis `example_data`, subfolders with test data `T#_...` and the script `run_EpitopeScan_test.py` for command-line tool testing.
+The repository also contains:
 
-- `requirements.txt` is a list of packages to be installed when setting up Python3 environment.
+- `test` folder with example data for analysis `example_data`, subfolders with test data `T#_...` and the script `run_EpitopeScan_test.py` for command-line tool testing.
+
+- `requirements.txt` and `setup.py` files relevant for installation (see [Section 2](#sec2)).
 
 <a name="sec2"></a>
 ## 2.  Download and set-up
 
-Create a new Python3 environment and install dependencies using `venv` and `pip` or `conda` in terminal:
+Create a new Python3 environment using venv or conda:
 
 ```
 # create and activate an environment using venv
 python3 -m venv EpitopeScan_env
 source EpitopeScan_env/bin/activate
 
-# or create and activate an environment using conda
+# alternatively, create and activate an environment using conda
 conda create --name EpitopeScan_env
 conda activate EpitopeScan_env
+conda install python pip
+```
 
+Make sure that the new environment is activated for the next steps.
+Clone this repository to your local system:
+
+```
+git clone git@github.com:Aleksandr-biochem/EpitopeScan.git
+
+# move to repository folder
+cd EpitopeScan
+```
+
+Install EpitopeScan as a package using pip:
+
+```
+pip install .
+```
+
+More tutorials on [pip and virtual environments](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/) and [conda](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
+
+Note: file `requirements.txt` lists the exact versions of the EpitopeScan dependencies used during development. If you experience problems with the last step of installation, you may benefit from reproducing package versions from `requirements.txt` as follows:
+
+```
+# EpitopeScan was developed with Python 3.10.9
 # then download required packages using pip
 pip install -r requirements.txt
 
 # or conda
 conda install -c bioconda --file requirements.txt
 ```
-More tutorials on [pip and virtual environments](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/) and [conda](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
 
-Clone EpitopeScan repository to your local system by executing: 
+After that run `pip install .`
+
+Now you should be able to call epitope scan:
 
 ```
-git clone git@github.com:Aleksandr-biochem/EpitopeScan.git
+$ EpitopeScan -h
+
+usage: EpitopeScan [-h] {scan,stat} ...
+
+EpitopeScan. Scan and analyse SARS-CoV-2 genome Multiple Sequence Alignment for peptide mutations
+
+options:
+  -h, --help   show this help message and exit
+
+Mode:
+  {scan,stat}
+    scan       Scan genome MSA file for peptide mutations
+    stat       Read and stat preexisting output
 ```
 
-Before using the package, you may run test script as described in [section 3.4](#sec34) to check the performance of EpitopeScan command-line tool.
-
-If you want to call EpitopeScan quickly from anywhere on the system, consult these tutorials on how to add EpitopeScan folder to your system paths on [Windows](https://correlated.kayako.com/article/40-running-python-scripts-from-anywhere-under-windows), [Mac](https://stackoverflow.com/questions/22465332/setting-path-environment-variable-in-osx-permanently) or [Linux](https://www.geeksforgeeks.org/run-python-script-from-anywhere-in-linux/). 
+Before using the package, you may run the test script as described in [section 3.4](#sec34) to check the performance of EpitopeScan command-line tool.
 
 <a name="sec3"></a>
 ## 3. EpitopeScan usage
@@ -70,18 +111,16 @@ If you want to call EpitopeScan quickly from anywhere on the system, consult the
 
 **a)** ***Peptide*** for analysis can be provided as a sequence OR as parent protein name + start and end residue indices. Multiple sequences can be provided as a file (see usage examples below for more).
 
-**b)** ***Genome Multiple Sequence Alignment (MSA)*** in FASTA format. EpitopeScan was originally developed to analyse genome alignments from [COG-UK](https://www.cogconsortium.uk/priority-areas/data-linkage-analysis/public-data-analysis/). The tool itself does not perform genome alignments. If you want to prepare your set of genomes for analysis, you should use `EPI_ISL_402124.fasta` as the reference sequence and any aligner of your choice (for example, MAFFT as described [here](https://github.com/nihcompmed/SARS-CoV-2-genome)).
+**b)** ***Genome Multiple Sequence Alignment (MSA)*** in FASTA format. EpitopeScan was originally developed to analyse genome alignments from [COG-UK](https://www.cogconsortium.uk/priority-areas/data-linkage-analysis/public-data-analysis/). The tool itself does not perform genome alignments. If you want to prepare your set of genomes for analysis, you should use `EPI_ISL_402124.fasta` as the reference sequence and any aligner of your choice. You can find further advice in [Section 4](#sec4).
 
 **c)** ***Metadata*** on samples dates and lineages in CSV format. Analysis can be performed without this input. However, it will only be possible to count mutations without any insights from sampling date and lineage. EpitopeScan was originally configured to deal with metadata from [COG-UK](https://www.cogconsortium.uk/priority-areas/data-linkage-analysis/public-data-analysis/). If you wish to use your custom table, make sure to prepare CSV table with the following columns: sequence\_name, sample\_date, epi\_week, usher\_lineage (view `test/example_data/example_metadata.csv` as a guide). 
 
 <a name="sec32"></a>
 ### 3.2 Running command line tool
 
-`EpitopeScan.py` operates in two modes:
+`EpitopeScan` operates in two modes:
 - *scan* to perform MSA file analysis and generate mutation data
 - *stat* to generate brief mutation statistics from preexisting mutation data 
-
-The following execution examples are given under the assumption of running the tools from `EpitopeScan` folder as `./EpitopeScan_tool_name.py`. In general, the tool should be called as `path/to/EpitopeScan_tool_name.py`.
 
 <a name="sec321"></a>
 #### 3.2.1 Scan mode
@@ -93,7 +132,34 @@ In the end of the run, mutation summary is printed to terminal stdout. It includ
 Access help section to navigate flags:
 
 ```
-./EpitopeScan.py scan -h
+$ EpitopeScan scan -h
+
+usage: EpitopeScan scan [-h] [-e EPITOPE] [-f FILE] --msa MSA [--metadata METADATA] [-o OUT] [-t TAG] [-q QUALITY_FILTER]
+                        [-n AMBIGUITY_THRESHOLD] [-b BLOSUM] [-s {0,1}] [-a {0,1}] [--stat_with_metadata]
+
+options:
+  -h, --help            show this help message and exit
+  -e EPITOPE, --epitope EPITOPE
+                        Peptide epitope. Name and sequence (comma-separated S1,VGYWA) OR name, parent protein name, first and last residue
+                        indeces in parent protein (indexing starts with 1, for example S1,S,130,145)
+  -f FILE, --file FILE  Alternatively, path to file with multiple input peptide sequences in FASTA format or coordinate inputs
+                        '>S1,S,130,145'
+  --msa MSA             Path to input MSA fasta file
+  --metadata METADATA   Path to metadata csv file to merge with mutaion data
+  -o OUT, --out OUT     Output directory name
+  -t TAG, --tag TAG     Sample name pattern to filter
+  -q QUALITY_FILTER, --quality_filter QUALITY_FILTER
+                        Max threshold for N bases proportion in genome. Recommended 0.05
+  -n AMBIGUITY_THRESHOLD, --ambiguity_threshold AMBIGUITY_THRESHOLD
+                        Max proportion of ambiguous residues in peptide sequence regarded as sufficient coverage. Defalut 1/3
+  -b BLOSUM, --blosum BLOSUM
+                        BLOSUM matrix version for mutation scoring. Default 90
+  -s {0,1}, --sort {0,1}
+                        Sort mutations summary by count(0) or score(1). Default 0
+  -a {0,1}, --stat {0,1}
+                        Stat individual mutations(0) or combinations(1). Default 0
+  --stat_with_metadata  Only stat samples with metadata
+
 ```
 
 **Required flags:**
@@ -122,24 +188,25 @@ DYKHYTPSFK
 Basic *scan* run to generate mutation data for 1 peptide and save output to an automatically named folder:
 
 ```
-./EpitopeScan.py scan -e S1,LTGIAVEQDK --msa test/example_data/example_genomes.fasta
+EpitopeScan scan -e S1,LTGIAVEQDK --msa test/example_data/example_genomes.fasta
 ```
 
 Perform analysis with peptide file input and combine mutation data with samples metadata, save to a new folder with custom name:
 
 ```
-./EpitopeScan.py scan -f test/example_data/example_epitope.fasta --msa test/example_data/example_genomes.fasta --metadata test/example_data/example_metadata.csv -o My_EpitopeScan_Output
+EpitopeScan scan -f test/example_data/example_epitope.fasta --msa test/example_data/example_genomes.fasta --metadata test/example_data/example_metadata.csv -o My_EpitopeScan_Output
 ```
 
 Add genome quality threshold of 0.07 (7%) and mark any sample with ambiguous bases in epitope's region as insufficient coverage sample:
 
 ```
-./EpitopeScan.py scan -f test/example_data/example_epitope.fasta --msa test/example_data/example_genomes.fasta --metadata test/example_data/example_metadata.csv -q 0.07 -n 0.0
+EpitopeScan scan -f test/example_data/example_epitope.fasta --msa test/example_data/example_genomes.fasta --metadata test/example_data/example_metadata.csv -q 0.07 -n 0.0
 ```
 
 Only keep samples with "England" or "Scotland" mentioned in sequence name:
+
 ```
-./EpitopeScan.py scan -f test/example_data/example_epitope.fasta --msa test/example_data/example_genomes.fasta --metadata test/example_data/example_metadata.csv -t "England|Scotland"
+EpitopeScan scan -f test/example_data/example_epitope.fasta --msa test/example_data/example_genomes.fasta --metadata test/example_data/example_metadata.csv -t "England|Scotland"
 ```
 
 <a name="sec322"></a>
@@ -149,7 +216,25 @@ The *stat* mode accepts preexisting *scan* output and prints summary report to t
 There is a help section to navigate flags:
 
 ```
-./EpitopeScan.py stat -h
+$ EpitopeScan stat -h
+
+usage: EpitopeScan stat [-h] -i INPUT [-b BLOSUM] [-s {0,1}] [-a {0,1}] [--stat_with_metadata] [--start_date START_DATE]
+                        [--end_date END_DATE]
+
+options:
+  -h, --help            show this help message and exit
+  -i INPUT, --input INPUT
+                        Direcory with scan output
+  -b BLOSUM, --blosum BLOSUM
+                        BLOSUM matrix version for mutation scoring. Default 90
+  -s {0,1}, --sort {0,1}
+                        Sort mutations summary by count(0) or score(1). Default 0
+  -a {0,1}, --stat {0,1}
+                        Stat individual mutations(0) or combinations(1). Default 0
+  --stat_with_metadata  Only stat samples with metadata
+  --start_date START_DATE
+                        Stat samples after this date, dd/mm/yyyy
+  --end_date END_DATE   Stat samples before this date, dd/mm/yyyy
 ```
 
 **Flag description:**
@@ -164,14 +249,15 @@ There is a help section to navigate flags:
 Basic run can be launched as follows (you can generate an output from `example_data` to try):
 
 ```
-./EpitopeScan.py stat -i path/to/EpitopeScan_output_dir
+EpitopeScan stat -i path/to/EpitopeScan_output_dir
 ```
 
 To stat occurring combinations instead of individual mutations in a desired date range, and sort summary table by score:
 
 ```
-./EpitopeScan.py stat -i path/to/EpitopeScan_output_dir -s 1 -a 1 --start_date 15/01/2020 --end_date 17/04/2020
+EpitopeScan stat -i path/to/EpitopeScan_output_dir -s 1 -a 1 --start_date 15/01/2020 --end_date 17/04/2020
 ```
+
 <a name="sec323"></a>
 #### 3.2.3 Mutation data output
 
@@ -187,14 +273,13 @@ When multiple peptides are provided, the output folder will contain separate sub
 <a name="sec33"></a>
 ### 3.3 Running graphical user-interface tool
 
-EpitopeScan GUI runs locally using the default web-browser as an interface. To launch the application execute:
+EpitopeScan GUI runs locally using the default web-browser as an interface. To launch simply type `EpitopeScanGUI` and wait for the browser window to pop-up:
 
 ```
-streamlit run ./EpitopeScanGUI.py --server.maxUploadSize 1000
+EpitopeScanGUI
 ```
 
 Upload mutation data files (one peptide at a time) and explore the interactive summary.
-Note that by default streamlit limits file upload to 200 MB. You might want to launch the app specifying a larger limit through `--server.maxUploadSize` depending on the size of your output tables.
 
 <a name="sec34"></a>
 ### 3.4 Running test scripts
@@ -205,4 +290,51 @@ Run the test script after installing EpitopeScan to verify the correct performan
 ```
 ./test/run_EpitopeScan_test.py
 ```
+
+<a name="sec4"></a>
+## 4. Advice on constructing Multiple Sequence Alignment
+
+EpitopeScan operates on aligned genomes, meaning that you need to align your genomes with some other tools before analysing them with EpitopeScan. Here, we provide some advice and options on how to approach this task. First, you should use `EPI_ISL_402124.fasta` from `EpitopeScan/reference_sequences` as a reference for alignment. Regarding the software choice for Multiple Sequence Alignment:
+
+**Option 1: Use Graphical User Interface software**
+
+In case you are most comfortable with Graphical User Interface software options:
+
+- There are some online-interfaces providing access to sequence alignment tools (for example, [this](https://www.genome.jp/tools-bin/mafft) or [this](https://www.ebi.ac.uk/jdispatcher/msa)). However, online tools may have limited capacity when it comes to large amount of data.
+
+- Alternatively, download and use free [Unipro UGENE software](http://ugene.net), which integrates multiple alignment algorithms to choose from. It will also be more convenient, if you wish to extend an alignment, as you can open a preexisting alignment file and append new sequences to it. Although, if you are dealing with millions of sequences, a graphical application could crash, so in this case you could explore terminal options described below.
+
+**Option 2: Use terminal tools**
+
+There are many different alignment tools with their strengths and drawbacks. Some popular options are listed [here](https://www.ebi.ac.uk/jdispatcher/msa).
+We give an example using [MAFFT aligner](https://mafft.cbrc.jp/alignment/software/source.html), which is a fast and well-established option:
+
+```
+# probably the easiest way to install MAFFT is with bioconda
+
+# create a separate environment for the tool
+conda create --name mafft_env
+conda activate mafft_env
+
+# install
+conda install bioconda::mafft
+
+# see MAFFT usage guide
+mafft -h
+
+# align genomes onto reference
+mafft --auto --keeplength --addfragments unaligned_genomes.fasta path/to/EPI_ISL_402124.fasta > sequences_aln.fasta
+
+# append new sequences to alignment file
+mafft --auto --keeplength --addfragments more_unaligned_genomes.fasta sequences_aln.fasta > new_sequences_aln.fasta
+```
+
+You can tune some MAFFT algorithm options or choose another aligner, which is convenient for you.
+Note, that for a large number of sequences alignment could be a lengthy process taking hours and days of computation.
+
+<a name="sec5"></a>
+## 5. Questions?
+
+If you have a question, which does not seem to be answered in this manual or if you want to report an issue, please, do so in the `Issues` tab at the GitHub page of this repository. Also, you may want to check if an issue similar to yours has been reported before. Your feedback is very much appreciated!
+
 
