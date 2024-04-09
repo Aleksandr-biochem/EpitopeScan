@@ -91,8 +91,10 @@ if __name__ == "__main__":
 
 	#### list peptides to run tests on 
 	script_dir = os.path.realpath(os.path.dirname(__file__))
+
 	# list folders with peptide data
 	peptide_names = [f for f in os.listdir(script_dir) if f[0] == 'T']
+
 	# read peptide sequences
 	test_peptides = []
 	for peptide_name in peptide_names:
@@ -116,7 +118,7 @@ if __name__ == "__main__":
 		print(f"Running test 1...")
 
 		# run analysis at default parameters
-		subprocess.run([f"{script_dir}/../EpitopeScan.py", "scan",
+		subprocess.run([f"EpitopeScan", "scan",
 						"-e", f"{name},{peptide}",
 						"--msa", f"{script_dir}/{name}/{name}_test_sequences.fasta",
 						"-o", f"ES_{name}"],
@@ -146,7 +148,7 @@ if __name__ == "__main__":
 		print(f"Running test 2...")
 
 		# run analysis with quality filter
-		subprocess.run([f"{script_dir}/../EpitopeScan.py", "scan",
+		subprocess.run([f"EpitopeScan", "scan",
 						"-e", f"{name},{peptide}",
 						"--msa", f"{script_dir}/{name}/{name}_test_sequences.fasta",
 						"-q", "0.05",
@@ -165,7 +167,7 @@ if __name__ == "__main__":
 		processed_samples1 = set(mut_data['sequence_name'])
 
 		# this should return all samples
-		subprocess.run([f"{script_dir}/../EpitopeScan.py", "scan",
+		subprocess.run([f"EpitopeScan", "scan",
 						"-e", f"{name},{peptide}",
 						"--msa", f"{script_dir}/{name}/{name}_test_sequences.fasta",
 						"-q", "0.30",
@@ -195,7 +197,7 @@ if __name__ == "__main__":
 		print(f"Running test 3...")
 
 		# run analysis with ambiguity intolerance
-		subprocess.run([f"{script_dir}/../EpitopeScan.py", "scan",
+		subprocess.run([f"EpitopeScan", "scan",
 						"-e", f"{name},{peptide}",
 						"--msa", f"{script_dir}/{name}/{name}_test_sequences.fasta",
 						"-n 0.0",
