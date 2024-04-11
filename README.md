@@ -339,12 +339,25 @@ mafft --auto --keeplength --addfragments unaligned_genomes.fasta path/to/EPI_ISL
 mafft --auto --keeplength --addfragments more_unaligned_genomes.fasta sequences_aln.fasta > new_sequences_aln.fasta
 ```
 
-We also provide a script, which will help if you want to update your alignment frequently with new sequences. 
+We also provide a script, which will help you to update your alignment with new sequences, especially if it's a frequent operation and you have a lot of files with genomes. 
 
-Imagine that you add files with new sequences in FASTA format to the folder `genome_sequences`. You can append the sequences from the folder to an alignment file `genome_alignment.fasta` using the script `update_msa.sh`. The script will automatically check what sequences in the folder are already in the alignment and will append the missing entries. 
+Imagine that you add files with new sequences in FASTA format to the folder `genome_sequences`. You can append the sequences from the folder to an alignment file `genome_alignment.fasta` using the script `update_msa.py`. The script will automatically check what sequences in each file in the folder are already in the alignment and will append the missing entries. 
 
 ```
-update_msa.sh -s path/to/genome_sequences -a path/to/genome_alignment.fasta
+./update_msa.py -h
+
+usage: update_msa.py [-h] -s SEQUENCES_DIR -a ALIGNMENT_FILE
+
+Update MSA with MAFFT aligner
+
+options:
+  -h, --help            show this help message and exit
+  -s SEQUENCES_DIR, --sequences_dir SEQUENCES_DIR
+                        Path to directory with genome sequences to align
+  -a ALIGNMENT_FILE, --alignment_file ALIGNMENT_FILE
+                        Alignment file to append sequences to
+
+./update_msa.py -s path/to/genome_sequences -a path/to/genome_alignment.fasta
 ```
 
 Note: if you are constructing MSA for the first time, just use the `mafft` command from above to align sequences to a reference genome.
